@@ -9,6 +9,11 @@ import { TableDetails } from "@/components/dashboard/TableDetails"
 import { BarOrders } from "@/components/dashboard/BarOrders"
 import { SupervisorView } from "@/components/dashboard/SupervisorView"
 import { CreateTableModal } from "@/components/dashboard/CreateTableModal"
+import { fetchTables, createTable as createTableAPI, updateTableStatus, CreateTableData } from "@/lib/api/tables"
+import { getDashboardAnalytics, DatabaseTableStatus, mapFrontendStatusToDatabase } from "@/lib/supabase"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { Filter } from "lucide-react"
 
 type TableStatus = "libre" | "esperando" | "en-curso" | "cuenta-solicitada"
 type OrderStatus = "pendiente" | "en-cocina" | "entregado"
@@ -23,6 +28,7 @@ interface Table {
   diners?: number
   assignedWaiter?: string
   startTime?: Date
+  dbStatus?: DatabaseTableStatus // Keep original database status for dashboard calculations
 }
 
 interface Order {
@@ -56,55 +62,9 @@ interface Notification {
 
 
 export default function RestaurantDashboard() {
-  const [tables, setTables] = useState<Table[]>([
-    { id: 1, number: "1", status: "libre", orders: [], diners: 0, assignedWaiter: "" },
-    {
-      id: 2,
-      number: "2",
-      status: "esperando",
-      orders: [
-        { id: 1, item: "Hamburguesa Clásica", status: "pendiente", timestamp: new Date(Date.now() - 5 * 60000) },
-      ],
-      waitTime: 5,
-      diners: 2,
-      assignedWaiter: "Carlos",
-      startTime: new Date(Date.now() - 5 * 60000),
-    },
-    {
-      id: 3,
-      number: "3",
-      status: "en-curso",
-      orders: [
-        { id: 2, item: "Pizza Margherita", status: "en-cocina", timestamp: new Date(Date.now() - 12 * 60000) },
-        { id: 3, item: "Ensalada César", status: "entregado", timestamp: new Date(Date.now() - 8 * 60000) },
-      ],
-      waitTime: 12,
-      diners: 4,
-      assignedWaiter: "María",
-      startTime: new Date(Date.now() - 12 * 60000),
-    },
-    {
-      id: 4,
-      number: "4",
-      status: "cuenta-solicitada",
-      orders: [{ id: 4, item: "Pasta Carbonara", status: "entregado", timestamp: new Date(Date.now() - 25 * 60000) }],
-      waitTime: 25,
-      diners: 3,
-      assignedWaiter: "Ana",
-      startTime: new Date(Date.now() - 25 * 60000),
-    },
-    { id: 5, number: "5", status: "libre", orders: [], diners: 0, assignedWaiter: "" },
-    {
-      id: 6,
-      number: "6",
-      status: "en-curso",
-      orders: [{ id: 5, item: "Tacos al Pastor", status: "en-cocina", timestamp: new Date(Date.now() - 8 * 60000) }],
-      waitTime: 8,
-      diners: 2,
-      assignedWaiter: "Luis",
-      startTime: new Date(Date.now() - 8 * 60000),
-    },
-  ])
+  const [tables, setTables] = useState<Table[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [barOrders, setBarOrders] = useState<BarOrder[]>([
     {
@@ -147,7 +107,26 @@ export default function RestaurantDashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [notificationCounter, setNotificationCounter] = useState(1)
 
-  const createTable = (tableData: {
+  // Fetch tables on component mount
+  useEffect(() => {
+    const loadTables = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const fetchedTables = await fetchTables()
+        setTables(fetchedTables)
+      } catch (err) {
+        console.error('Failed to fetch tables:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch tables')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadTables()
+  }, [])
+
+  const createTable = async (tableData: {
     number: string
     capacity: number
     status: TableStatus
@@ -155,27 +134,39 @@ export default function RestaurantDashboard() {
     fixedPrice?: number
     personalizedService?: string
   }) => {
-    const newTable: Table = {
-      id: Math.max(...tables.map(t => t.id)) + 1,
-      number: tableData.number,
-      status: tableData.status,
-      orders: [],
-      diners: tableData.status === "libre" ? 0 : tableData.capacity,
-      assignedWaiter: tableData.assignedWaiter || "",
-      startTime: tableData.status !== "libre" ? new Date() : undefined,
+    try {
+      setLoading(true)
+      setError(null)
+
+      const createData: CreateTableData = {
+        number: tableData.number,
+        capacity: tableData.capacity,
+        status: tableData.status,
+        assignedWaiter: tableData.assignedWaiter,
+        fixedPrice: tableData.fixedPrice,
+        personalizedService: tableData.personalizedService
+      }
+
+      const newTable = await createTableAPI(createData)
+      setTables(prevTables => [...prevTables, newTable])
+    } catch (err) {
+      console.error('Failed to create table:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create table')
+    } finally {
+      setLoading(false)
     }
-    setTables([...tables, newTable])
   }
 
   const simulateNewOrder = (tableId: number) => {
-    const table = tables.find((t) => t.id === tableId)
-    if (!table) return
+    // const table = tables.find((t) => t.id === tableId)
+    // if (!table) return
 
     const newNotification: Notification = {
       id: notificationCounter,
       type: "new-order",
-      tableId,
-      message: `Mesa ${table.number} ha realizado un nuevo pedido`,
+      tableId: 1,
+      // message: `Mesa ${table.number} ha realizado un nuevo pedido`,
+      message: `Mesa 1 ha realizado un nuevo pedido`,
       timestamp: new Date(),
       dismissed: false,
     }
@@ -183,20 +174,21 @@ export default function RestaurantDashboard() {
     setNotifications((prev) => [...prev, newNotification])
     setNotificationCounter((prev) => prev + 1)
 
-    if (soundEnabled) {
-      console.log(`[v0] New order notification: Mesa ${table.number}`)
-    }
+    // if (soundEnabled) {
+    //   console.log(`[v0] New order notification: Mesa ${table.number}`)
+    // }
   }
 
   const simulateBillRequest = (tableId: number) => {
-    const table = tables.find((t) => t.id === tableId)
-    if (!table) return
+    // const table = tables.find((t) => t.id === tableId)
+    // if (!table) return
 
     const newNotification: Notification = {
       id: notificationCounter,
       type: "bill-request",
       tableId,
-      message: `Mesa ${table.number} solicita la cuenta`,
+      // message: `Mesa ${table.number} solicita la cuenta`,
+      message: `Mesa 1 solicita la cuenta`,
       timestamp: new Date(),
       dismissed: false,
     }
@@ -204,20 +196,21 @@ export default function RestaurantDashboard() {
     setNotifications((prev) => [...prev, newNotification])
     setNotificationCounter((prev) => prev + 1)
 
-    if (soundEnabled) {
-      console.log(`[v0] Bill request notification: Mesa ${table.number}`)
-    }
+    // if (soundEnabled) {
+    //   console.log(`[v0] Bill request notification: Mesa ${table.number}`)
+    // }
   }
 
   const simulateWaiterCall = (tableId: number) => {
-    const table = tables.find((t) => t.id === tableId)
-    if (!table) return
+    // const table = tables.find((t) => t.id === tableId)
+    // if (!table) return
 
     const newNotification: Notification = {
       id: notificationCounter,
       type: "waiter-call",
       tableId,
-      message: `Mesa ${table.number} llama al mozo`,
+      // message: `Mesa ${table.number} llama al mozo`,
+      message: `Mesa 1 llama al mozo`,
       timestamp: new Date(),
       dismissed: false,
     }
@@ -225,9 +218,9 @@ export default function RestaurantDashboard() {
     setNotifications((prev) => [...prev, newNotification])
     setNotificationCounter((prev) => prev + 1)
 
-    if (soundEnabled) {
-      console.log(`[v0] Waiter call notification: Mesa ${table.number}`)
-    }
+    // if (soundEnabled) {
+    //   console.log(`[v0] Waiter call notification: Mesa ${table.number}`)
+    // }
   }
 
   const dismissNotification = (notificationId: number) => {
@@ -279,9 +272,27 @@ export default function RestaurantDashboard() {
     )
   }
 
-  const changeTableStatus = (tableId: number, newStatus: TableStatus) => {
-    setTables(tables.map((table) => (table.id === tableId ? { ...table, status: newStatus } : table)))
-    setSelectedTable(null)
+  const changeTableStatus = async (tableId: number, newStatus: TableStatus) => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      await updateTableStatus(tableId, newStatus)
+
+      // Update local state with both frontend and database status
+      const newDbStatus = mapFrontendStatusToDatabase(newStatus)
+      setTables(tables.map((table) => (
+        table.id === tableId
+          ? { ...table, status: newStatus, dbStatus: newDbStatus }
+          : table
+      )))
+      setSelectedTable(null)
+    } catch (err) {
+      console.error('Failed to update table status:', err)
+      setError(err instanceof Error ? err.message : 'Failed to update table status')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const markBarOrderAsDelivered = (orderId: number) => {
@@ -305,7 +316,15 @@ export default function RestaurantDashboard() {
     setTables(
       tables.map((table) =>
         table.id === tableId
-          ? { ...table, status: "libre" as TableStatus, orders: [], diners: 0, waitTime: 0, startTime: undefined }
+          ? {
+              ...table,
+              status: "libre" as TableStatus,
+              dbStatus: "free" as DatabaseTableStatus,
+              orders: [],
+              diners: 0,
+              waitTime: 0,
+              startTime: undefined
+            }
           : table,
       ),
     )
@@ -314,26 +333,46 @@ export default function RestaurantDashboard() {
 
   const quickRequestBill = (tableId: number) => {
     setTables(
-      tables.map((table) => (table.id === tableId ? { ...table, status: "cuenta-solicitada" as TableStatus } : table)),
+      tables.map((table) => (
+        table.id === tableId
+          ? { ...table, status: "cuenta-solicitada" as TableStatus, dbStatus: "bill_requested" as DatabaseTableStatus }
+          : table
+      )),
     )
   }
 
-  const occupiedTables = tables.filter((t) => t.status !== "libre").length
-  const freeTables = tables.filter((t) => t.status === "libre").length
-  const delayedOrders = tables.filter((t) => t.waitTime && t.waitTime > 15).length
-  const pendingBarOrders = barOrders.filter((o) => o.status !== "entregado").length
+  // Dashboard analytics using the centralized mapping
+  const { freeTables, busyTables, deliveredTables, paidTables } = getDashboardAnalytics(tables)
+
+  // Debug: Log dashboard analytics when tables change
+  useEffect(() => {
+    console.log('Dashboard Analytics Update:', {
+      freeTables,
+      busyTables,
+      deliveredTables,
+      paidTables,
+      totalTables: tables.length,
+      tableStatuses: tables.map(t => ({ id: t.id, status: t.status, dbStatus: t.dbStatus }))
+    })
+  }, [freeTables, busyTables, deliveredTables, paidTables, tables])
 
   return (
     <div className="min-h-screen bg-black text-white p-2 sm:p-4 lg:p-6">
       <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
+        {error && (
+          <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded mb-4">
+            <p className="font-medium">Error:</p>
+            <p>{error}</p>
+          </div>
+        )}
         <DashboardHeader
           activeNotificationsCount={activeNotifications.length}
           soundEnabled={soundEnabled}
           setSoundEnabled={setSoundEnabled}
-          occupiedTables={occupiedTables}
+          busyTables={busyTables}
           freeTables={freeTables}
-          delayedOrders={delayedOrders}
-          pendingBarOrders={pendingBarOrders}
+          delayedTables={deliveredTables}
+          barTables={paidTables}
         />
 
         <NotificationsSection
@@ -375,17 +414,60 @@ export default function RestaurantDashboard() {
           <TabsContent value="comandera" className="space-y-4 lg:space-y-6">
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
               <div className="xl:col-span-2">
-                <TablesGrid
-                  tables={tables}
-                  tableFilter={tableFilter}
-                  setTableFilter={setTableFilter}
-                  tipNotifications={tipNotifications}
-                  setSelectedTable={setSelectedTable}
-                  quickMarkDelivered={quickMarkDelivered}
-                  quickRequestBill={quickRequestBill}
-                  quickFreeTable={quickFreeTable}
-                  onCreateTable={() => setIsCreateTableModalOpen(true)}
-                />
+                <div className="space-y-4 py-6">
+                  <div className="flex flex-row justify-between">
+                    <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
+                      <Filter className="h-4 w-4 text-gray-400" />
+                      <Select value={tableFilter} onValueChange={setTableFilter}>
+                        <SelectTrigger className="w-40 lg:w-48 text-white bg-transparent border-slate-600">
+                          <SelectValue placeholder="Filtrar mesas" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-700">
+                          <SelectItem value="all" className="text-white hover:bg-gray-700">
+                            Todas
+                          </SelectItem>
+                          <SelectItem value="occupied" className="text-white hover:bg-gray-700">
+                            Ocupadas
+                          </SelectItem>
+                          <SelectItem value="delayed" className="text-white hover:bg-gray-700">
+                            Demoradas
+                          </SelectItem>
+                          <SelectItem value="bill-requested" className="text-white hover:bg-gray-700">
+                            Cuenta
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="h-10 px-4 bg-transparent border-zinc-950 text-white hover:bg-gray-700"
+                      onClick={() => setIsCreateTableModalOpen(true)}
+                    >
+                      Create Table
+                    </Button>
+                  </div>
+                </div>
+                {loading ? (
+                  <div className="flex items-center justify-center h-64">
+                    <div className="text-gray-400">Loading tables...</div>
+                  </div>
+                ) : tables.length === 0 ? (
+                  <div className="flex items-center justify-center h-64">
+                    There are no tables
+                  </div>
+                ) : (
+                  <TablesGrid
+                    tables={tables}
+                    tableFilter={tableFilter}
+                    setTableFilter={setTableFilter}
+                    tipNotifications={tipNotifications}
+                    setSelectedTable={setSelectedTable}
+                    quickMarkDelivered={quickMarkDelivered}
+                    quickRequestBill={quickRequestBill}
+                    quickFreeTable={quickFreeTable}
+                    onCreateTable={() => setIsCreateTableModalOpen(true)}
+                  />
+                )}
               </div>
               <div className="xl:col-span-1">
                 <TableDetails

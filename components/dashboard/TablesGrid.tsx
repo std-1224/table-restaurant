@@ -3,12 +3,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Users,
   Timer,
   UserCheck,
-  Filter,
   Check,
   DollarSign,
   Home,
@@ -103,39 +101,6 @@ export function TablesGrid({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-row justify-between">
-        <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
-          <Filter className="h-4 w-4 text-gray-400" />
-          <Select value={tableFilter} onValueChange={setTableFilter}>
-            <SelectTrigger className="w-40 lg:w-48 text-white bg-transparent border-slate-600">
-              <SelectValue placeholder="Filtrar mesas" />
-            </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700">
-              <SelectItem value="all" className="text-white hover:bg-gray-700">
-                Todas
-              </SelectItem>
-              <SelectItem value="occupied" className="text-white hover:bg-gray-700">
-                Ocupadas
-              </SelectItem>
-              <SelectItem value="delayed" className="text-white hover:bg-gray-700">
-                Demoradas
-              </SelectItem>
-              <SelectItem value="bill-requested" className="text-white hover:bg-gray-700">
-                Cuenta
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button
-          variant="outline"
-          className="h-10 px-4 bg-transparent border-zinc-950 text-white hover:bg-gray-700"
-          onClick={onCreateTable}
-        >
-          Create Table
-        </Button>
-      </div>
-
       <Card className="border-zinc-950 bg-transparent">
         <CardHeader className="pb-3 lg:pb-4">
           <CardTitle className="text-base sm:text-lg text-gray-100">Mesas</CardTitle>
@@ -226,6 +191,5 @@ export function TablesGrid({
           </div>
         </CardContent>
       </Card>
-    </div>
   )
 }

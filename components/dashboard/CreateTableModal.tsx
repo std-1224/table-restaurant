@@ -26,7 +26,7 @@ interface CreateTableModalProps {
     assignedWaiter?: string
     fixedPrice?: number
     personalizedService?: string
-  }) => void
+  }) => Promise<void>
 }
 
 export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTableModalProps) {
@@ -38,28 +38,40 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
     fixedPrice: 0,
     personalizedService: "",
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onCreateTable({
-      number: formData.number,
-      capacity: formData.capacity,
-      status: formData.status,
-      assignedWaiter: formData.assignedWaiter === "none" ? undefined : formData.assignedWaiter,
-      fixedPrice: formData.fixedPrice || undefined,
-      personalizedService: formData.personalizedService || undefined,
-    })
 
-    // Reset form
-    setFormData({
-      number: "",
-      capacity: 4,
-      status: "libre",
-      assignedWaiter: "none",
-      fixedPrice: 0,
-      personalizedService: "",
-    })
-    onClose()
+    if (isSubmitting) return
+
+    try {
+      setIsSubmitting(true)
+      await onCreateTable({
+        number: formData.number,
+        capacity: formData.capacity,
+        status: formData.status,
+        assignedWaiter: formData.assignedWaiter === "none" ? undefined : formData.assignedWaiter,
+        fixedPrice: formData.fixedPrice || undefined,
+        personalizedService: formData.personalizedService || undefined,
+      })
+
+      // Reset form
+      setFormData({
+        number: "",
+        capacity: 4,
+        status: "libre",
+        assignedWaiter: "none",
+        fixedPrice: 0,
+        personalizedService: "",
+      })
+      onClose()
+    } catch (error) {
+      console.error('Failed to create table:', error)
+      // Error is handled by parent component
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
@@ -211,9 +223,10 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
             </Button>
             <Button
               type="submit"
-              className="bg-gray-800 hover:bg-gray-700 text-white border border-gray-600"
+              disabled={isSubmitting}
+              className="bg-gray-800 hover:bg-gray-700 text-white border border-gray-600 disabled:opacity-50"
             >
-              Crear Mesa
+              {isSubmitting ? "Creando..." : "Crear Mesa"}
             </Button>
           </DialogFooter>
         </form>

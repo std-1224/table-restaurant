@@ -16,20 +16,20 @@ interface DashboardHeaderProps {
   activeNotificationsCount: number
   soundEnabled: boolean
   setSoundEnabled: (enabled: boolean) => void
-  occupiedTables: number
+  busyTables: number
   freeTables: number
-  delayedOrders: number
-  pendingBarOrders: number
+  delayedTables: number
+  barTables: number
 }
 
 export function DashboardHeader({
   activeNotificationsCount,
   soundEnabled,
   setSoundEnabled,
-  occupiedTables,
+  busyTables,
   freeTables,
-  delayedOrders,
-  pendingBarOrders,
+  delayedTables,
+  barTables,
 }: DashboardHeaderProps) {
   return (
     <header className="space-y-3 lg:space-y-4">
@@ -59,7 +59,7 @@ export function DashboardHeader({
               <Users className="h-4 w-4 lg:h-5 lg:w-5 text-blue-300" />
               <div>
                 <p className="text-xs text-gray-300">Ocupadas</p>
-                <p className="text-sm sm:text-base font-bold text-gray-100">{occupiedTables}</p>
+                <p className="text-sm sm:text-base font-bold text-gray-100">{busyTables}</p>
               </div>
             </div>
           </CardContent>
@@ -80,8 +80,8 @@ export function DashboardHeader({
             <div className="flex items-center gap-2 lg:gap-3">
               <AlertTriangle className="h-4 w-4 lg:h-5 lg:w-5 text-red-300" />
               <div>
-                <p className="text-xs text-gray-300">Demorados</p>
-                <p className="text-sm sm:text-base font-bold text-gray-100">{delayedOrders}</p>
+                <p className="text-xs text-gray-300">Entregados</p>
+                <p className="text-sm sm:text-base font-bold text-gray-100">{delayedTables}</p>
               </div>
             </div>
           </CardContent>
@@ -91,8 +91,8 @@ export function DashboardHeader({
             <div className="flex items-center gap-2 lg:gap-3">
               <Coffee className="h-4 w-4 lg:h-5 lg:w-5 text-orange-300" />
               <div>
-                <p className="text-xs text-gray-300">Barra</p>
-                <p className="text-sm sm:text-base font-bold text-gray-100">{pendingBarOrders}</p>
+                <p className="text-xs text-gray-300">Pagados</p>
+                <p className="text-sm sm:text-base font-bold text-gray-100">{barTables}</p>
               </div>
             </div>
           </CardContent>
