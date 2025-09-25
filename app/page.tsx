@@ -337,65 +337,6 @@ export default function RestaurantDashboard() {
     }
   }
 
-  const simulateBillRequest = async (tableId: number) => {
-    try {
-      const table = tables.find((t) => t.id === tableId)
-      if (!table) return
-
-      // Create table notification record
-      await createTableNotification(tableId, 'bill_request')
-
-      // Create notification for UI
-      const newNotification: Notification = {
-        id: notificationCounter,
-        type: "bill_request",
-        tableId,
-        message: `Mesa ${table.number} solicita la cuenta`,
-        timestamp: new Date(),
-        dismissed: false,
-      }
-
-      setNotifications((prev) => [...prev, newNotification])
-      setNotificationCounter((prev) => prev + 1)
-
-      if (soundEnabled) {
-        console.log(`[v0] Bill request notification: Mesa ${table.number}`)
-      }
-    } catch (error) {
-      console.error('Failed to create bill request:', error)
-      setError(error instanceof Error ? error.message : 'Failed to create bill request')
-    }
-  }
-
-  const simulateWaiterCall = async (tableId: number) => {
-    try {
-      const table = tables.find((t) => t.id === tableId)
-      if (!table) return
-
-      // Create table notification record
-      await createTableNotification(tableId, 'waiter_call')
-
-      // Create notification for UI
-      const newNotification: Notification = {
-        id: notificationCounter,
-        type: "waiter_call",
-        tableId,
-        message: `Mesa ${table.number} llama al mozo`,
-        timestamp: new Date(),
-        dismissed: false,
-      }
-
-      setNotifications((prev) => [...prev, newNotification])
-      setNotificationCounter((prev) => prev + 1)
-
-      if (soundEnabled) {
-        console.log(`[v0] Bill request notification: Mesa ${table.number}`)
-      }
-    } catch (error) {
-      console.error('Failed to simulate waiter call:', error)
-    }
-  }
-
   const dismissNotification = (notificationId: number) => {
     setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, dismissed: true } : n)))
   }
@@ -763,7 +704,6 @@ export default function RestaurantDashboard() {
                   markOrderAsDelivered={markOrderAsDelivered}
                   changeTableStatus={changeTableStatus}
                   scanQRCode={scanQRCode}
-                  simulateWaiterCall={simulateWaiterCall}
                 />
               </div>
             </div>
