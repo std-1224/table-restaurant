@@ -10,7 +10,7 @@ import {
   AlertTriangle,
 } from "lucide-react"
 
-type NotificationType = "new_order" | "bill_request" | "waiter_call"
+type NotificationType = "new_order" | "bill_request" | "waiter_call" | "special_request"
 
 interface Notification {
   id: number
@@ -52,6 +52,8 @@ export function NotificationsSection({
         return <Receipt className="h-4 w-4" />
       case "waiter_call":
         return <HandRaised className="h-4 w-4" />
+      case "special_request":
+        return <AlertTriangle className="h-4 w-4" />
       default:
         return <Bell className="h-4 w-4" />
     }
@@ -65,6 +67,8 @@ export function NotificationsSection({
         return "bg-green-600 border-green-400 text-white"
       case "waiter_call":
         return "bg-yellow-600 border-yellow-400 text-black"
+      case "special_request":
+        return "bg-purple-600 border-purple-400 text-white"
       default:
         return "bg-gray-600 border-gray-400 text-white"
     }
