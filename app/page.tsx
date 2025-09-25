@@ -9,15 +9,15 @@ import { TableDetails } from "@/components/dashboard/TableDetails"
 import { BarOrders } from "@/components/dashboard/BarOrders"
 import { SupervisorView } from "@/components/dashboard/SupervisorView"
 import { CreateTableModal } from "@/components/dashboard/CreateTableModal"
-import { fetchTables, createTable as createTableAPI, updateTableStatus, CreateTableData } from "@/lib/api/tables"
-import { getDashboardAnalytics, DatabaseTableStatus, mapFrontendStatusToDatabase } from "@/lib/supabase"
+import { fetchTables, createTable as createTableAPI, updateTableStatus, CreateTableData, createTableSession, createTableOrder, getTableOrders, TableOrder, createTableNotification, closeTableSession } from "@/lib/api/tables"
+import { getDashboardAnalytics, DatabaseTableStatus, mapFrontendStatusToDatabase, supabase } from "@/lib/supabase"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Filter } from "lucide-react"
 
 type TableStatus = "libre" | "esperando" | "en-curso" | "cuenta-solicitada"
 type OrderStatus = "pendiente" | "en-cocina" | "entregado"
-type NotificationType = "new-order" | "bill-request" | "waiter-call"
+type NotificationType = "new_order" | "bill_request" | "waiter_call" | "special_request"
 
 interface Table {
   id: number
@@ -57,15 +57,12 @@ interface Notification {
   dismissed: boolean
 }
 
-
-
-
-
 export default function RestaurantDashboard() {
   const [tables, setTables] = useState<Table[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [realTableOrders, setRealTableOrders] = useState<TableOrder[]>([])
   const [barOrders, setBarOrders] = useState<BarOrder[]>([
     {
       id: 1,
@@ -107,24 +104,180 @@ export default function RestaurantDashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [notificationCounter, setNotificationCounter] = useState(1)
 
-  // Fetch tables on component mount
+  // Fetch tables and table orders on component mount
   useEffect(() => {
-    const loadTables = async () => {
+    const loadData = async () => {
       try {
         setLoading(true)
         setError(null)
-        const fetchedTables = await fetchTables()
+        const [fetchedTables, fetchedOrders] = await Promise.all([
+          fetchTables(),
+          getTableOrders()
+        ])
         setTables(fetchedTables)
+        setRealTableOrders(fetchedOrders)
+
+        // Convert real table orders to bar orders format for display
+        const convertedBarOrders = fetchedOrders.map((order, index) => {
+          const table = fetchedTables.find(t => t.id.toString() === order.table_id)
+          const mockItems = ["Bebida Especial", "Cocktail Premium", "Cerveza Artesanal"]
+          const mockBartenders = ["Pedro", "Sofia", "Carlos"]
+
+          return {
+            id: parseInt(order.id.split('-')[0], 16) % 10000,
+            items: [mockItems[index % mockItems.length]],
+            status: "pendiente" as OrderStatus,
+            barId: (index % 2) + 1,
+            timestamp: new Date(order.created_at),
+            assignedBartender: mockBartenders[index % mockBartenders.length],
+            drinkTypes: { Cocktails: 1 }
+          }
+        })
+
+        // Combine with existing mock orders
+        setBarOrders(prev => [...convertedBarOrders, ...prev])
       } catch (err) {
-        console.error('Failed to fetch tables:', err)
-        setError(err instanceof Error ? err.message : 'Failed to fetch tables')
+        console.error('Failed to fetch data:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch data')
       } finally {
         setLoading(false)
       }
     }
 
-    loadTables()
+    loadData()
   }, [])
+
+  useEffect(() => {
+    //add notification realtime
+    const notificationChannel = supabase
+      .channel("notifications_realtime_updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "table_notifications",
+        },
+        async (payload: any) => {
+          try {
+            // Skip if no ID (shouldn't happen but safeguards)
+            if (!payload.new?.id && payload.eventType !== "DELETE") {
+              console.warn("Payload missing ID:", payload);
+              return;
+            }
+
+            // Fetch the full table notification with relationships
+            const { data: updatedNotification, error } = await supabase
+              .from("table_notifications")
+              .select(
+                `
+              *, table:tables!table_id(*)
+            `
+              )
+              .eq("id", payload.new.id)
+              .single();
+
+            if (error) {
+              console.error("Error fetching updated notification:", error);
+              return;
+            }
+
+            setNotifications((prev) => {
+              switch (payload.eventType) {
+                case "INSERT":
+                  // Handle different notification types
+                  let newNotification: Notification;
+
+                  switch (updatedNotification.type) {
+                    case "new_order":
+                      newNotification = {
+                        id: notificationCounter,
+                        type: "new_order",
+                        tableId: updatedNotification.table_id,
+                        message: `Mesa ${updatedNotification.table?.table_number || 'N/A'} ha realizado un nuevo pedido`,
+                        timestamp: new Date(),
+                        dismissed: false,
+                      };
+                      break;
+
+                    case "bill_request":
+                      newNotification = {
+                        id: notificationCounter,
+                        type: "bill_request",
+                        tableId: updatedNotification.table_id,
+                        message: `Mesa ${updatedNotification.table?.table_number || 'N/A'} tiene solicitud de factura`,
+                        timestamp: new Date(),
+                        dismissed: false,
+                      };
+                      break;
+                    case "special_request":
+                      newNotification = {
+                        id: notificationCounter,
+                        type: "special_request",
+                        tableId: updatedNotification.table_id,
+                        message: `Mesa ${updatedNotification.table?.table_number || 'N/A'} tiene petición especial`,
+                        timestamp: new Date(),
+                        dismissed: false,
+                      };
+                      break;
+                    case "waiter_call": 
+                      newNotification = {
+                          id: notificationCounter,
+                          type: "waiter_call",
+                          tableId: updatedNotification.table_id,
+                          message: `Mesa ${updatedNotification.table?.table_number || 'N/A'} tiene solicitud de Llamar Mozo`,
+                          timestamp: new Date(),
+                          dismissed: false,
+                        };
+                      break;
+
+                    default:
+                      throw new Error(`Unhandled notification type: ${updatedNotification.type}`);
+                  }
+
+                  setNotificationCounter((prev) => prev + 1);
+                  return [newNotification, ...prev];
+
+
+                case "UPDATE":
+                  return prev.map((notification) =>
+                    notification.id === updatedNotification.id
+                      ? {
+                        ...notification,
+                        ...updatedNotification,
+                        timestamp: notification.timestamp, // Keep original timestamp
+                      }
+                      : notification
+                  );
+
+                case "DELETE":
+                  return prev.filter(
+                    (notification) => notification.id !== payload.old.id
+                  );
+
+                default:
+                  console.warn("Unknown event type:", payload.eventType);
+                  return prev;
+              }
+            });
+          } catch (err) {
+            console.error("Error processing notification update:", err);
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          console.log("Successfully subscribed to notifications");
+        }
+        if (err) {
+          console.error("Subscription error:", err);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(notificationChannel);
+    };
+  }, [notificationCounter]); // Add notificationCounter to dependencies
 
   const createTable = async (tableData: {
     number: string
@@ -134,10 +287,27 @@ export default function RestaurantDashboard() {
     fixedPrice?: number
     personalizedService?: string
   }) => {
-    try {
-      setLoading(true)
-      setError(null)
+    // Generate optimistic table ID
+    const optimisticId = Date.now() % 10000
 
+    // Create optimistic table object
+    const optimisticTable: Table = {
+      id: optimisticId,
+      number: tableData.number,
+      status: tableData.status,
+      orders: [],
+      waitTime: tableData.status !== "libre" ? 0 : undefined,
+      diners: tableData.status === "libre" ? 0 : tableData.capacity,
+      assignedWaiter: tableData.assignedWaiter,
+      startTime: tableData.status !== "libre" ? new Date() : undefined,
+      dbStatus: mapFrontendStatusToDatabase(tableData.status)
+    }
+
+    // Optimistic update: Add table immediately to UI
+    setTables(prevTables => [...prevTables, optimisticTable])
+    setError(null)
+
+    try {
       const createData: CreateTableData = {
         number: tableData.number,
         capacity: tableData.capacity,
@@ -147,80 +317,83 @@ export default function RestaurantDashboard() {
         personalizedService: tableData.personalizedService
       }
 
+      // Create table in database
       const newTable = await createTableAPI(createData)
-      setTables(prevTables => [...prevTables, newTable])
+
+      // Replace optimistic table with real table data
+      setTables(prevTables =>
+        prevTables.map(table =>
+          table.id === optimisticId ? newTable : table
+        )
+      )
     } catch (err) {
       console.error('Failed to create table:', err)
       setError(err instanceof Error ? err.message : 'Failed to create table')
-    } finally {
-      setLoading(false)
+
+      // Rollback: Remove optimistic table on error
+      setTables(prevTables =>
+        prevTables.filter(table => table.id !== optimisticId)
+      )
     }
   }
 
-  const simulateNewOrder = (tableId: number) => {
-    // const table = tables.find((t) => t.id === tableId)
-    // if (!table) return
+  const simulateBillRequest = async (tableId: number) => {
+    try {
+      const table = tables.find((t) => t.id === tableId)
+      if (!table) return
 
-    const newNotification: Notification = {
-      id: notificationCounter,
-      type: "new-order",
-      tableId: 1,
-      // message: `Mesa ${table.number} ha realizado un nuevo pedido`,
-      message: `Mesa 1 ha realizado un nuevo pedido`,
-      timestamp: new Date(),
-      dismissed: false,
+      // Create table notification record
+      await createTableNotification(tableId, 'bill_request')
+
+      // Create notification for UI
+      const newNotification: Notification = {
+        id: notificationCounter,
+        type: "bill_request",
+        tableId,
+        message: `Mesa ${table.number} solicita la cuenta`,
+        timestamp: new Date(),
+        dismissed: false,
+      }
+
+      setNotifications((prev) => [...prev, newNotification])
+      setNotificationCounter((prev) => prev + 1)
+
+      if (soundEnabled) {
+        console.log(`[v0] Bill request notification: Mesa ${table.number}`)
+      }
+    } catch (error) {
+      console.error('Failed to create bill request:', error)
+      setError(error instanceof Error ? error.message : 'Failed to create bill request')
     }
-
-    setNotifications((prev) => [...prev, newNotification])
-    setNotificationCounter((prev) => prev + 1)
-
-    // if (soundEnabled) {
-    //   console.log(`[v0] New order notification: Mesa ${table.number}`)
-    // }
   }
 
-  const simulateBillRequest = (tableId: number) => {
-    // const table = tables.find((t) => t.id === tableId)
-    // if (!table) return
+  const simulateWaiterCall = async (tableId: number) => {
+    try {
+      const table = tables.find((t) => t.id === tableId)
+      if (!table) return
 
-    const newNotification: Notification = {
-      id: notificationCounter,
-      type: "bill-request",
-      tableId,
-      // message: `Mesa ${table.number} solicita la cuenta`,
-      message: `Mesa 1 solicita la cuenta`,
-      timestamp: new Date(),
-      dismissed: false,
+      // Create table notification record
+      await createTableNotification(tableId, 'waiter_call')
+
+      // Create notification for UI
+      const newNotification: Notification = {
+        id: notificationCounter,
+        type: "waiter_call",
+        tableId,
+        message: `Mesa ${table.number} llama al mozo`,
+        timestamp: new Date(),
+        dismissed: false,
+      }
+
+      setNotifications((prev) => [...prev, newNotification])
+      setNotificationCounter((prev) => prev + 1)
+
+      if (soundEnabled) {
+        console.log(`[v0] Bill request notification: Mesa ${table.number}`)
+      }
+    } catch (error) {
+      console.error('Failed to simulate waiter call:', error)
     }
-
-    setNotifications((prev) => [...prev, newNotification])
-    setNotificationCounter((prev) => prev + 1)
-
-    // if (soundEnabled) {
-    //   console.log(`[v0] Bill request notification: Mesa ${table.number}`)
-    // }
-  }
-
-  const simulateWaiterCall = (tableId: number) => {
-    // const table = tables.find((t) => t.id === tableId)
-    // if (!table) return
-
-    const newNotification: Notification = {
-      id: notificationCounter,
-      type: "waiter-call",
-      tableId,
-      // message: `Mesa ${table.number} llama al mozo`,
-      message: `Mesa 1 llama al mozo`,
-      timestamp: new Date(),
-      dismissed: false,
-    }
-
-    setNotifications((prev) => [...prev, newNotification])
-    setNotificationCounter((prev) => prev + 1)
-
-    // if (soundEnabled) {
-    //   console.log(`[v0] Waiter call notification: Mesa ${table.number}`)
-    // }
   }
 
   const dismissNotification = (notificationId: number) => {
@@ -273,25 +446,48 @@ export default function RestaurantDashboard() {
   }
 
   const changeTableStatus = async (tableId: number, newStatus: TableStatus) => {
-    try {
-      setLoading(true)
-      setError(null)
+    // Store original table state for rollback
+    const originalTable = tables.find(table => table.id === tableId)
+    if (!originalTable) return
 
+    // Optimistic update: Update UI immediately
+    const newDbStatus = mapFrontendStatusToDatabase(newStatus)
+    setTables(tables.map((table) => (
+      table.id === tableId
+        ? {
+          ...table,
+          status: newStatus,
+          dbStatus: newDbStatus,
+          // Reset table data when setting to libre
+          ...(newStatus === "libre" && {
+            orders: [],
+            diners: 0,
+            waitTime: 0,
+            startTime: undefined
+          })
+        }
+        : table
+    )))
+    setSelectedTable(null)
+    setError(null)
+
+    try {
+      // Update in database
       await updateTableStatus(tableId, newStatus)
 
-      // Update local state with both frontend and database status
-      const newDbStatus = mapFrontendStatusToDatabase(newStatus)
-      setTables(tables.map((table) => (
-        table.id === tableId
-          ? { ...table, status: newStatus, dbStatus: newDbStatus }
-          : table
-      )))
-      setSelectedTable(null)
+      // If setting table to "libre", close the current session
+      if (newStatus === "libre") {
+        await closeTableSession(tableId)
+      }
     } catch (err) {
       console.error('Failed to update table status:', err)
       setError(err instanceof Error ? err.message : 'Failed to update table status')
-    } finally {
-      setLoading(false)
+
+      // Rollback: Restore original table state
+      setTables(tables.map((table) => (
+        table.id === tableId ? originalTable : table
+      )))
+      setSelectedTable(originalTable)
     }
   }
 
@@ -299,62 +495,157 @@ export default function RestaurantDashboard() {
     setBarOrders(
       barOrders.map((order) => (order.id === orderId ? { ...order, status: "entregado" as OrderStatus } : order)),
     )
+
+    // Reset wait time for all tables that are "en-curso" (keep status as "En Curso")
+    setTables(tables.map((table) => (
+      table.status === "en-curso"
+        ? { ...table, waitTime: 0, startTime: new Date() }
+        : table
+    )))
   }
 
   const quickMarkDelivered = (tableId: number) => {
     setTables(
       tables.map((table) =>
         table.id === tableId
-          ? { ...table, orders: table.orders.map((order) => ({ ...order, status: "entregado" as OrderStatus })) }
+          ? {
+            ...table,
+            orders: table.orders.map((order) => ({ ...order, status: "entregado" as OrderStatus })),
+            status: "en-curso" as TableStatus, // Keep status as "En Curso"
+            dbStatus: "producing" as DatabaseTableStatus,
+            waitTime: 0, // Reset wait time
+            startTime: new Date() // Reset start time
+          }
           : table,
       ),
     )
     setTipNotifications((prev) => ({ ...prev, [tableId]: false }))
   }
 
-  const quickFreeTable = (tableId: number) => {
+  const quickFreeTable = async (tableId: number) => {
+    // Store original table state for rollback
+    const originalTable = tables.find(table => table.id === tableId)
+    if (!originalTable) return
+
+    // Optimistic update: Update UI immediately
     setTables(
       tables.map((table) =>
         table.id === tableId
           ? {
-              ...table,
-              status: "libre" as TableStatus,
-              dbStatus: "free" as DatabaseTableStatus,
-              orders: [],
-              diners: 0,
-              waitTime: 0,
-              startTime: undefined
-            }
+            ...table,
+            status: "libre" as TableStatus,
+            dbStatus: "free" as DatabaseTableStatus,
+            orders: [],
+            diners: 0,
+            waitTime: 0,
+            startTime: undefined
+          }
           : table,
       ),
     )
     setTipNotifications((prev) => ({ ...prev, [tableId]: false }))
+    setError(null)
+
+    try {
+      // Update in database
+      await updateTableStatus(tableId, "libre")
+      await closeTableSession(tableId)
+    } catch (error) {
+      console.error('Failed to free table:', error)
+      setError(error instanceof Error ? error.message : 'Failed to free table')
+
+      // Rollback: Restore original table state
+      setTables(tables.map((table) => (
+        table.id === tableId ? originalTable : table
+      )))
+      setTipNotifications((prev) => ({ ...prev, [tableId]: true }))
+    }
   }
 
-  const quickRequestBill = (tableId: number) => {
+  const quickRequestBill = async (tableId: number) => {
+    const table = tables.find((t) => t.id === tableId)
+    if (!table) return
+
+    // Store original table state for rollback
+    const originalTable = { ...table }
+
+    // Optimistic update: Update UI immediately
     setTables(
-      tables.map((table) => (
-        table.id === tableId
-          ? { ...table, status: "cuenta-solicitada" as TableStatus, dbStatus: "bill_requested" as DatabaseTableStatus }
-          : table
+      tables.map((t) => (
+        t.id === tableId
+          ? { ...t, status: "cuenta-solicitada" as TableStatus, dbStatus: "bill_requested" as DatabaseTableStatus }
+          : t
       )),
     )
+
+    // Create notification for UI immediately
+    const newNotification: Notification = {
+      id: notificationCounter,
+      type: "bill_request",
+      tableId,
+      message: `Mesa ${table.number} solicita la cuenta`,
+      timestamp: new Date(),
+      dismissed: false,
+    }
+
+    setNotifications((prev) => [...prev, newNotification])
+    setNotificationCounter((prev) => prev + 1)
+    setError(null)
+
+    try {
+      // Create table notification record in database
+      await createTableNotification(tableId, 'bill_request')
+    } catch (error) {
+      console.error('Failed to request bill:', error)
+      setError(error instanceof Error ? error.message : 'Failed to request bill')
+
+      // Rollback: Restore original table state and remove notification
+      setTables(tables.map((t) => (
+        t.id === tableId ? originalTable : t
+      )))
+      setNotifications((prev) => prev.filter(n => n.id !== newNotification.id))
+      setNotificationCounter((prev) => prev - 1)
+    }
+  }
+
+  const scanQRCode = async (tableId: number) => {
+    // Store original table state for rollback
+    const originalTable = tables.find(table => table.id === tableId)
+    if (!originalTable) return
+
+    // Optimistic update: Update UI immediately
+    setTables(tables.map((table) => (
+      table.id === tableId
+        ? {
+          ...table,
+          status: "esperando" as TableStatus,
+          dbStatus: "occupied" as DatabaseTableStatus,
+          startTime: new Date(),
+          waitTime: 0
+        }
+        : table
+    )))
+    setSelectedTable(null)
+    setError(null)
+
+    try {
+      // Update in database
+      await updateTableStatus(tableId, "esperando")
+      await createTableSession(tableId)
+    } catch (err) {
+      console.error('Failed to scan QR code:', err)
+      setError(err instanceof Error ? err.message : 'Failed to scan QR code')
+
+      // Rollback: Restore original table state
+      setTables(tables.map((table) => (
+        table.id === tableId ? originalTable : table
+      )))
+      setSelectedTable(originalTable)
+    }
   }
 
   // Dashboard analytics using the centralized mapping
   const { freeTables, busyTables, deliveredTables, paidTables } = getDashboardAnalytics(tables)
-
-  // Debug: Log dashboard analytics when tables change
-  useEffect(() => {
-    console.log('Dashboard Analytics Update:', {
-      freeTables,
-      busyTables,
-      deliveredTables,
-      paidTables,
-      totalTables: tables.length,
-      tableStatuses: tables.map(t => ({ id: t.id, status: t.status, dbStatus: t.dbStatus }))
-    })
-  }, [freeTables, busyTables, deliveredTables, paidTables, tables])
 
   return (
     <div className="min-h-screen bg-black text-white p-2 sm:p-4 lg:p-6">
@@ -382,9 +673,6 @@ export default function RestaurantDashboard() {
           dismissNotification={dismissNotification}
           setTipNotifications={setTipNotifications}
           dismissTipNotification={dismissTipNotification}
-          simulateNewOrder={simulateNewOrder}
-          simulateBillRequest={simulateBillRequest}
-          simulateWaiterCall={simulateWaiterCall}
         />
 
 
@@ -432,7 +720,7 @@ export default function RestaurantDashboard() {
                           <SelectItem value="delayed" className="text-white hover:bg-gray-700">
                             Demoradas
                           </SelectItem>
-                          <SelectItem value="bill-requested" className="text-white hover:bg-gray-700">
+                          <SelectItem value="bill_requested" className="text-white hover:bg-gray-700">
                             Cuenta
                           </SelectItem>
                         </SelectContent>
@@ -474,6 +762,8 @@ export default function RestaurantDashboard() {
                   selectedTable={selectedTable}
                   markOrderAsDelivered={markOrderAsDelivered}
                   changeTableStatus={changeTableStatus}
+                  scanQRCode={scanQRCode}
+                  simulateWaiterCall={simulateWaiterCall}
                 />
               </div>
             </div>

@@ -43,7 +43,7 @@
   --table-free: oklch(0.65 0.18 160);
   --table-waiting: oklch(0.7 0.15 60);
   --table-in-progress: oklch(0.6 0.2 260);
-  --table-bill-requested: oklch(0.6 0.25 20);
+  --table-bill_requested: oklch(0.6 0.25 20);
 }
 
 .dark {
@@ -85,7 +85,7 @@
   --table-free: oklch(0.65 0.18 160);
   --table-waiting: oklch(0.7 0.15 60);
   --table-in-progress: oklch(0.6 0.2 260);
-  --table-bill-requested: oklch(0.6 0.25 20);
+  --table-bill_requested: oklch(0.6 0.25 20);
 }
 
 @theme inline {
@@ -132,7 +132,7 @@
   --color-table-free: var(--table-free);
   --color-table-waiting: var(--table-waiting);
   --color-table-in-progress: var(--table-in-progress);
-  --color-table-bill-requested: var(--table-bill-requested);
+  --color-table-bill_requested: var(--table-bill_requested);
 }
 
 @layer base {

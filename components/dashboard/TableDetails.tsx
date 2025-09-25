@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Check } from "lucide-react"
+import { Clock, Check, QrCode, ShoppingCart, HandPlatter as HandRaised, Bell, } from "lucide-react"
 
 type TableStatus = "libre" | "esperando" | "en-curso" | "cuenta-solicitada"
 type OrderStatus = "pendiente" | "en-cocina" | "entregado"
@@ -30,6 +30,7 @@ interface TableDetailsProps {
   selectedTable: Table | null
   markOrderAsDelivered: (tableId: number, orderId: number) => void
   changeTableStatus: (tableId: number, newStatus: TableStatus) => void
+  scanQRCode: (tableId: number) => void
 }
 
 const statusColors = {
@@ -43,6 +44,7 @@ export function TableDetails({
   selectedTable,
   markOrderAsDelivered,
   changeTableStatus,
+  scanQRCode,
 }: TableDetailsProps) {
   const getStatusColor = (status: TableStatus) => {
     return statusColors[status] || "bg-gray-600 text-white border-gray-500"
@@ -122,7 +124,7 @@ export function TableDetails({
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-100 text-xs truncate">{order.item}</p>
-                        <Badge size="sm" className={`${getOrderStatusColor(order.status)} mt-1 text-xs`}>
+                        <Badge className={`${getOrderStatusColor(order.status)} mt-1 text-xs`}>
                           {order.status}
                         </Badge>
                       </div>
@@ -173,6 +175,20 @@ export function TableDetails({
                     onClick={() => changeTableStatus(selectedTable.id, "cuenta-solicitada")}
                   >
                     Cuenta
+                  </Button>
+                </div>
+                <div className="mt-3">
+                  <div className="flex items-center gap-2 mb-2 justify-center">
+                    <Bell className="h-4 w-4 text-gray-300" />
+                    <span className="text-xs text-gray-200">Simular notificaciones:</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full h-8 lg:h-10 text-xs text-white hover:bg-blue-700 bg-blue-800/80 border-blue-500"
+                    onClick={() => scanQRCode(selectedTable.id)}
+                  >
+                    <QrCode className="h-3 w-3 lg:h-4 lg:w-4 mr-1 lg:mr-2" />
+                    Escanear QR
                   </Button>
                 </div>
               </div>

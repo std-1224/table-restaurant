@@ -91,7 +91,7 @@ export function TablesGrid({
     switch (tableFilter) {
       case "delayed":
         return tables.filter((t) => t.waitTime && t.waitTime > 15)
-      case "bill-requested":
+      case "bill_requested":
         return tables.filter((t) => t.status === "cuenta-solicitada")
       case "occupied":
         return tables.filter((t) => t.status !== "libre")
@@ -126,7 +126,7 @@ export function TablesGrid({
                   >
                     {getStatusText(table.status)}
                   </Badge>
-                  {table.diners > 0 && (
+                  {table.diners && table?.diners > 0 && (
                     <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
                       <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                       <span>{table.diners}</span>

@@ -10,7 +10,7 @@ import {
   AlertTriangle,
 } from "lucide-react"
 
-type NotificationType = "new-order" | "bill-request" | "waiter-call"
+type NotificationType = "new_order" | "bill_request" | "waiter_call"
 
 interface Notification {
   id: number
@@ -34,9 +34,6 @@ interface NotificationsSectionProps {
   dismissNotification: (notificationId: number) => void
   setTipNotifications: (notifications: { [key: number]: boolean }) => void
   dismissTipNotification: (tableId: number) => void
-  simulateNewOrder: (tableId: number) => void
-  simulateBillRequest: (tableId: number) => void
-  simulateWaiterCall: (tableId: number) => void
 }
 
 export function NotificationsSection({
@@ -46,17 +43,14 @@ export function NotificationsSection({
   dismissNotification,
   setTipNotifications,
   dismissTipNotification,
-  simulateNewOrder,
-  simulateBillRequest,
-  simulateWaiterCall,
 }: NotificationsSectionProps) {
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
-      case "new-order":
+      case "new_order":
         return <ShoppingCart className="h-4 w-4" />
-      case "bill-request":
+      case "bill_request":
         return <Receipt className="h-4 w-4" />
-      case "waiter-call":
+      case "waiter_call":
         return <HandRaised className="h-4 w-4" />
       default:
         return <Bell className="h-4 w-4" />
@@ -65,11 +59,11 @@ export function NotificationsSection({
 
   const getNotificationColor = (type: NotificationType) => {
     switch (type) {
-      case "new-order":
+      case "new_order":
         return "bg-blue-600 border-blue-400 text-white"
-      case "bill-request":
+      case "bill_request":
         return "bg-green-600 border-green-400 text-white"
-      case "waiter-call":
+      case "waiter_call":
         return "bg-yellow-600 border-yellow-400 text-black"
       default:
         return "bg-gray-600 border-gray-400 text-white"
@@ -151,42 +145,6 @@ export function NotificationsSection({
           </div>
         </div>
       )}
-
-      <div className="p-3 lg:p-4 border rounded-lg bg-transparent border-zinc-950">
-        <div className="flex items-center gap-2 mb-2">
-          <Bell className="h-4 w-4 text-gray-300" />
-          <span className="text-xs text-gray-200">Simular notificaciones:</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-blue-800/80 border-blue-500 text-blue-100 hover:bg-blue-700 hover:border-blue-400 h-8 px-3 text-xs"
-            onClick={() => simulateNewOrder(2)}
-          >
-            <ShoppingCart className="h-3 w-3 mr-1" />
-            Nuevo Pedido
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-green-800/80 border-green-500 text-green-100 hover:bg-green-700 hover:border-green-400 h-8 px-3 text-xs"
-            onClick={() => simulateBillRequest(3)}
-          >
-            <Receipt className="h-3 w-3 mr-1" />
-            Pedir Cuenta
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-yellow-800/80 border-yellow-500 text-yellow-100 hover:bg-yellow-700 hover:border-yellow-400 h-8 px-3 text-xs"
-            onClick={() => simulateWaiterCall(4)}
-          >
-            <HandRaised className="h-3 w-3 mr-1" />
-            Llamar Mozo
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }
