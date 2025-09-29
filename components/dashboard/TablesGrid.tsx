@@ -7,7 +7,6 @@ import {
   Users,
   Timer,
   UserCheck,
-  Check,
   DollarSign,
   Home,
 } from "lucide-react"
@@ -31,8 +30,6 @@ interface TablesGridProps {
   setTableFilter: (filter: string) => void
   tipNotifications: { [key: number]: boolean }
   setSelectedTable: (table: Table) => void
-  quickMarkDelivered: (tableId: number) => void
-  quickRequestBill: (tableId: number) => void
   quickFreeTable: (tableId: number) => void
   onCreateTable: () => void
 }
@@ -56,8 +53,6 @@ export function TablesGrid({
   setTableFilter,
   tipNotifications,
   setSelectedTable,
-  quickMarkDelivered,
-  quickRequestBill,
   quickFreeTable,
   onCreateTable,
 }: TablesGridProps) {
@@ -148,30 +143,6 @@ export function TablesGrid({
 
                 {table.status !== "libre" && (
                   <div className="flex justify-center gap-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-12 w-12 p-0 bg-green-800/90 border-green-500 text-green-100 hover:bg-green-700 hover:border-green-400 rounded-lg"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        quickMarkDelivered(table.id)
-                      }}
-                      title="Marcar como entregado"
-                    >
-                      <Check className="h-5 w-5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-12 w-12 p-0 bg-yellow-800/90 border-yellow-500 text-yellow-100 hover:bg-yellow-700 hover:border-yellow-400 rounded-lg"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        quickRequestBill(table.id)
-                      }}
-                      title="Solicitar cuenta"
-                    >
-                      <DollarSign className="h-5 w-5" />
-                    </Button>
                     <Button
                       size="sm"
                       variant="outline"

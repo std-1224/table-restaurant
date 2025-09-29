@@ -9,7 +9,7 @@ import { TableDetails } from "@/components/dashboard/TableDetails"
 import { BarOrders } from "@/components/dashboard/BarOrders"
 import { SupervisorView } from "@/components/dashboard/SupervisorView"
 import { CreateTableModal } from "@/components/dashboard/CreateTableModal"
-import { fetchTables, createTable as createTableAPI, updateTableStatus, CreateTableData, createTableSession, createTableOrder, getTableOrders, TableOrder, createTableNotification, closeTableSession } from "@/lib/api/tables"
+import { fetchTables, createTable as createTableAPI, updateTableStatus, CreateTableData, createTableSession, createTableNotification, closeTableSession } from "@/lib/api/tables"
 import { getDashboardAnalytics, DatabaseTableStatus, mapFrontendStatusToDatabase, supabase } from "@/lib/supabase"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
@@ -62,7 +62,6 @@ export default function RestaurantDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [realTableOrders, setRealTableOrders] = useState<TableOrder[]>([])
   const [barOrders, setBarOrders] = useState<BarOrder[]>([
     {
       id: 1,
@@ -104,53 +103,74 @@ export default function RestaurantDashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [notificationCounter, setNotificationCounter] = useState(1)
 
-  // Fetch tables and table orders on component mount
+  // Helper function to update tables and sync selected table
+  const updateTablesAndSelectedTable = (newTables: Table[]) => {
+    setTables(newTables)
+
+    // Update selected table if it exists to reflect real-time changes
+    if (selectedTable) {
+      const updatedSelectedTable = newTables.find(table => table.id === selectedTable.id)
+      if (updatedSelectedTable) {
+        setSelectedTable(updatedSelectedTable)
+      } else {
+        // If selected table no longer exists, clear selection
+        setSelectedTable(null)
+      }
+    }
+  }
+
+  // Initial data loading effect
   useEffect(() => {
-    const loadData = async () => {
+    const loadInitialData = async () => {
       try {
         setLoading(true)
         setError(null)
-        const [fetchedTables, fetchedOrders] = await Promise.all([
-          fetchTables(),
-          getTableOrders()
-        ])
-        setTables(fetchedTables)
-        setRealTableOrders(fetchedOrders)
-
-        // Convert real table orders to bar orders format for display
-        const convertedBarOrders = fetchedOrders.map((order, index) => {
-          const table = fetchedTables.find(t => t.id.toString() === order.table_id)
-          const mockItems = ["Bebida Especial", "Cocktail Premium", "Cerveza Artesanal"]
-          const mockBartenders = ["Pedro", "Sofia", "Carlos"]
-
-          return {
-            id: parseInt(order.id.split('-')[0], 16) % 10000,
-            items: [mockItems[index % mockItems.length]],
-            status: "pendiente" as OrderStatus,
-            barId: (index % 2) + 1,
-            timestamp: new Date(order.created_at),
-            assignedBartender: mockBartenders[index % mockBartenders.length],
-            drinkTypes: { Cocktails: 1 }
-          }
-        })
-
-        // Combine with existing mock orders
-        setBarOrders(prev => [...convertedBarOrders, ...prev])
+        const fetchedTables = await fetchTables()
+        updateTablesAndSelectedTable(fetchedTables)
       } catch (err) {
-        console.error('Failed to fetch data:', err)
-        setError(err instanceof Error ? err.message : 'Failed to fetch data')
+        console.error('Failed to load initial data:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load initial data')
       } finally {
         setLoading(false)
       }
     }
 
-    loadData()
+    loadInitialData()
   }, [])
 
+  // Real-time updates effect
   useEffect(() => {
-    //add notification realtime
+    const tablesChannel = supabase
+      .channel("tables_realtime_updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen to all changes
+          schema: "public",
+          table: "tables",
+        },
+        async (payload: any) => {
+          try {
+            // Skip if no ID (shouldn't happen but safeguards)
+            if (!payload.new?.id && payload.eventType !== "DELETE") {
+              console.warn("Payload missing ID:", payload);
+              return;
+            }
+
+            // Don't show loading spinner for real-time updates
+            const fetchedTables = await fetchTables()
+            updateTablesAndSelectedTable(fetchedTables)
+          } catch (err) {
+            console.error('Failed to fetch real-time data:', err)
+            setError(err instanceof Error ? err.message : 'Failed to fetch real-time data')
+          }
+        }
+      )
+      .subscribe();
+
+    // Notification real-time updates
     const notificationChannel = supabase
-      .channel("notifications_realtime_updates")
+      .channel("table_notifications_realtime_updates")
       .on(
         "postgres_changes",
         {
@@ -220,15 +240,15 @@ export default function RestaurantDashboard() {
                         dismissed: false,
                       };
                       break;
-                    case "waiter_call": 
+                    case "waiter_call":
                       newNotification = {
-                          id: notificationCounter,
-                          type: "waiter_call",
-                          tableId: updatedNotification.table_id,
-                          message: `Mesa ${updatedNotification.table?.table_number || 'N/A'} tiene solicitud de Llamar Mozo`,
-                          timestamp: new Date(),
-                          dismissed: false,
-                        };
+                        id: notificationCounter,
+                        type: "waiter_call",
+                        tableId: updatedNotification.table_id,
+                        message: `Mesa ${updatedNotification.table?.table_number || 'N/A'} tiene solicitud de Llamar Mozo`,
+                        timestamp: new Date(),
+                        dismissed: false,
+                      };
                       break;
 
                     default:
@@ -265,19 +285,13 @@ export default function RestaurantDashboard() {
           }
         }
       )
-      .subscribe((status, err) => {
-        if (status === "SUBSCRIBED") {
-          console.log("Successfully subscribed to notifications");
-        }
-        if (err) {
-          console.error("Subscription error:", err);
-        }
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(notificationChannel);
+      supabase.removeChannel(tablesChannel);
     };
-  }, [notificationCounter]); // Add notificationCounter to dependencies
+  }, [notificationCounter])
 
   const createTable = async (tableData: {
     number: string
@@ -345,45 +359,38 @@ export default function RestaurantDashboard() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setTables((prevTables) =>
-        prevTables.map((table) => {
+      setTables((prevTables) => {
+        const updatedTables = prevTables.map((table) => {
           if (table.startTime && table.status !== "libre") {
             const waitTime = Math.floor((Date.now() - table.startTime.getTime()) / 60000)
 
             if (waitTime >= 20 && !tipNotifications[table.id]) {
               setTipNotifications((prev) => ({ ...prev, [table.id]: true }))
-              if (soundEnabled) {
-                console.log(`[v0] Tip notification for table ${table.number} - ${waitTime} minutes`)
-              }
+              // Sound notification would be triggered here if implemented
             }
 
             return { ...table, waitTime }
           }
           return table
-        }),
-      )
+        })
+
+        // Update selected table if it exists to reflect wait time changes
+        if (selectedTable) {
+          const updatedSelectedTable = updatedTables.find(table => table.id === selectedTable.id)
+          if (updatedSelectedTable) {
+            setSelectedTable(updatedSelectedTable)
+          }
+        }
+
+        return updatedTables
+      })
     }, 60000)
 
     return () => clearInterval(interval)
-  }, [tipNotifications, soundEnabled])
+  }, [tipNotifications, soundEnabled, selectedTable?.id])
 
   const dismissTipNotification = (tableId: number) => {
     setTipNotifications((prev) => ({ ...prev, [tableId]: false }))
-  }
-
-  const markOrderAsDelivered = (tableId: number, orderId: number) => {
-    setTables(
-      tables.map((table) =>
-        table.id === tableId
-          ? {
-            ...table,
-            orders: table.orders.map((order) =>
-              order.id === orderId ? { ...order, status: "entregado" as OrderStatus } : order,
-            ),
-          }
-          : table,
-      ),
-    )
   }
 
   const changeTableStatus = async (tableId: number, newStatus: TableStatus) => {
@@ -445,24 +452,6 @@ export default function RestaurantDashboard() {
     )))
   }
 
-  const quickMarkDelivered = (tableId: number) => {
-    setTables(
-      tables.map((table) =>
-        table.id === tableId
-          ? {
-            ...table,
-            orders: table.orders.map((order) => ({ ...order, status: "entregado" as OrderStatus })),
-            status: "en-curso" as TableStatus, // Keep status as "En Curso"
-            dbStatus: "producing" as DatabaseTableStatus,
-            waitTime: 0, // Reset wait time
-            startTime: new Date() // Reset start time
-          }
-          : table,
-      ),
-    )
-    setTipNotifications((prev) => ({ ...prev, [tableId]: false }))
-  }
-
   const quickFreeTable = async (tableId: number) => {
     // Store original table state for rollback
     const originalTable = tables.find(table => table.id === tableId)
@@ -500,52 +489,6 @@ export default function RestaurantDashboard() {
         table.id === tableId ? originalTable : table
       )))
       setTipNotifications((prev) => ({ ...prev, [tableId]: true }))
-    }
-  }
-
-  const quickRequestBill = async (tableId: number) => {
-    const table = tables.find((t) => t.id === tableId)
-    if (!table) return
-
-    // Store original table state for rollback
-    const originalTable = { ...table }
-
-    // Optimistic update: Update UI immediately
-    setTables(
-      tables.map((t) => (
-        t.id === tableId
-          ? { ...t, status: "cuenta-solicitada" as TableStatus, dbStatus: "bill_requested" as DatabaseTableStatus }
-          : t
-      )),
-    )
-
-    // Create notification for UI immediately
-    const newNotification: Notification = {
-      id: notificationCounter,
-      type: "bill_request",
-      tableId,
-      message: `Mesa ${table.number} solicita la cuenta`,
-      timestamp: new Date(),
-      dismissed: false,
-    }
-
-    setNotifications((prev) => [...prev, newNotification])
-    setNotificationCounter((prev) => prev + 1)
-    setError(null)
-
-    try {
-      // Create table notification record in database
-      await createTableNotification(tableId, 'bill_request')
-    } catch (error) {
-      console.error('Failed to request bill:', error)
-      setError(error instanceof Error ? error.message : 'Failed to request bill')
-
-      // Rollback: Restore original table state and remove notification
-      setTables(tables.map((t) => (
-        t.id === tableId ? originalTable : t
-      )))
-      setNotifications((prev) => prev.filter(n => n.id !== newNotification.id))
-      setNotificationCounter((prev) => prev - 1)
     }
   }
 
@@ -615,8 +558,6 @@ export default function RestaurantDashboard() {
           setTipNotifications={setTipNotifications}
           dismissTipNotification={dismissTipNotification}
         />
-
-
 
         <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as any)} className="w-full">
           <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-12 bg-transparent border-zinc-950 gap-1 sm:gap-0 p-1">
@@ -691,8 +632,6 @@ export default function RestaurantDashboard() {
                     setTableFilter={setTableFilter}
                     tipNotifications={tipNotifications}
                     setSelectedTable={setSelectedTable}
-                    quickMarkDelivered={quickMarkDelivered}
-                    quickRequestBill={quickRequestBill}
                     quickFreeTable={quickFreeTable}
                     onCreateTable={() => setIsCreateTableModalOpen(true)}
                   />
@@ -701,7 +640,6 @@ export default function RestaurantDashboard() {
               <div className="xl:col-span-1">
                 <TableDetails
                   selectedTable={selectedTable}
-                  markOrderAsDelivered={markOrderAsDelivered}
                   changeTableStatus={changeTableStatus}
                   scanQRCode={scanQRCode}
                 />

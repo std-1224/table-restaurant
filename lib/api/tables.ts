@@ -1,9 +1,8 @@
-import { supabase, DatabaseTable, FrontendTable, mapDatabaseTableToFrontend, mapFrontendStatusToDatabase, FrontendTableStatus } from '../supabase'
+import { supabase, FrontendTable, mapDatabaseTableToFrontend, mapFrontendStatusToDatabase, FrontendTableStatus } from '../supabase'
 
 // Default venue ID - in a real app, this would come from user authentication
 const DEFAULT_VENUE_ID = null;
 
-// Database interfaces for new features
 export interface TableSession {
   id: string
   table_id: string
@@ -18,6 +17,29 @@ export interface TableOrder {
   table_id: string
   order_id: string
   created_at: string
+}
+
+export interface OrderItem {
+  id: string,
+  user_id : string
+  total_amount : number,
+  notes : string,
+  is_table_order : true,
+  table_number : string,
+  payment_method : string,
+  user_name : string,
+  qr_id : null,
+  table_id : string,
+  status: 'pending' | 'preparing' | 'ready' | 'delivered',
+  created_at: string,
+}
+
+export interface OrderWithItems {
+  id: string
+  table_id: string
+  order_id: string
+  created_at: string
+  order_items: OrderItem[]
 }
 
 export interface TableNotification {
@@ -157,45 +179,6 @@ export async function updateTableStatus(tableId: number, newStatus: FrontendTabl
 }
 
 /**
- * Delete a table
- */
-export async function deleteTable(tableId: number): Promise<void> {
-  try {
-    // Find the table by converting frontend ID back to database format
-    const { data: tables } = await supabase
-      .from('tables')
-      .select('id')
-      .eq('venue_id', DEFAULT_VENUE_ID)
-
-    if (!tables) {
-      throw new Error('No tables found')
-    }
-
-    const targetTable = tables.find(table => {
-      const frontendId = parseInt(table.id.split('-')[0], 16) % 10000
-      return frontendId === tableId
-    })
-
-    if (!targetTable) {
-      throw new Error(`Table with ID ${tableId} not found`)
-    }
-
-    const { error } = await supabase
-      .from('tables')
-      .delete()
-      .eq('id', targetTable.id)
-
-    if (error) {
-      console.error('Error deleting table:', error)
-      throw error
-    }
-  } catch (error) {
-    console.error('Failed to delete table:', error)
-    throw error
-  }
-}
-
-/**
  * Create a new table session
  */
 export async function createTableSession(tableId: number): Promise<TableSession> {
@@ -307,53 +290,7 @@ export async function closeTableSession(tableId: number): Promise<void> {
   }
 }
 
-/**
- * Create a new table order
- */
-export async function createTableOrder(tableId: number, orderId: string): Promise<TableOrder> {
-  try {
-    // Find the table by converting frontend ID back to database format
-    const { data: tables } = await supabase
-      .from('tables')
-      .select('id')
 
-    if (!tables) {
-      throw new Error('No tables found')
-    }
-
-    const targetTable = tables.find(table => {
-      const frontendId = parseInt(table.id.split('-')[0], 16) % 10000
-      return frontendId === tableId
-    })
-
-    if (!targetTable) {
-      throw new Error(`Table with ID ${tableId} not found`)
-    }
-
-    const { data, error } = await supabase
-      .from('table_orders')
-      .insert({
-        table_id: targetTable.id,
-        order_id: orderId
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error creating table order:', error)
-      throw error
-    }
-
-    if (!data) {
-      throw new Error('No data returned from table order creation')
-    }
-
-    return data
-  } catch (error) {
-    console.error('Failed to create table order:', error)
-    throw error
-  }
-}
 
 /**
  * Create a new table notification
@@ -408,24 +345,69 @@ export async function createTableNotification(
 }
 
 /**
- * Get table orders for display in BarOrders
+ * Get table orders with order items for a specific table
  */
-export async function getTableOrders(): Promise<TableOrder[]> {
+export async function getTableOrdersForTable(tableId: number): Promise<OrderWithItems[]> {
   try {
-    const { data, error } = await supabase
-      .from('table_orders')
-      .select(`
-        *,
-        tables!inner(table_number, status)
-      `)
-      .order('created_at', { ascending: false })
+    // Find the table by converting frontend ID back to database format
+    const { data: tables } = await supabase
+      .from('tables')
+      .select('id')
 
-    if (error) {
-      console.error('Error fetching table orders:', error)
-      throw error
+    if (!tables) {
+      throw new Error('No tables found')
     }
 
-    return data || []
+    const targetTable = tables.find(table => {
+      const frontendId = parseInt(table.id.split('-')[0], 16) % 10000
+      return frontendId === tableId
+    })
+
+    if (!targetTable) {
+      throw new Error(`Table with ID ${tableId} not found`)
+    }
+
+    // Get table orders
+    const { data: tableOrders, error: tableOrdersError } = await supabase
+      .from('table_orders')
+      .select('*')
+      .eq('table_id', targetTable.id)
+      .order('created_at', { ascending: false })
+
+    if (tableOrdersError) {
+      console.error('Error fetching table orders:', tableOrdersError)
+      throw tableOrdersError
+    }
+
+    if (!tableOrders || tableOrders.length === 0) {
+      return []
+    }
+
+    // For each table order, fetch the order items from the orders table
+    const ordersWithItems: OrderWithItems[] = []
+
+    for (const tableOrder of tableOrders) {
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', tableOrder.order_id)
+
+      if (orderItemsError) {
+        console.error(`Error fetching order items for order ${tableOrder.order_id}:`, orderItemsError)
+        // Continue with other orders even if one fails
+        continue
+      }
+
+      ordersWithItems.push({
+        id: tableOrder.id,
+        table_id: tableOrder.table_id,
+        order_id: tableOrder.order_id,
+        created_at: tableOrder.created_at,
+        order_items: orderItems || []
+      })
+    }
+
+    return ordersWithItems
   } catch (error) {
     console.error('Failed to fetch table orders:', error)
     throw error

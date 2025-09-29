@@ -1,25 +1,20 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Check, QrCode, ShoppingCart, HandPlatter as HandRaised, Bell, } from "lucide-react"
+import { Clock, QrCode, ShoppingCart, Bell } from "lucide-react"
+import { getTableOrdersForTable, OrderWithItems } from "@/lib/api/tables"
+import { supabase } from "@/lib/supabase"
 
 type TableStatus = "libre" | "esperando" | "en-curso" | "cuenta-solicitada"
-type OrderStatus = "pendiente" | "en-cocina" | "entregado"
-
-interface Order {
-  id: number
-  item: string
-  status: OrderStatus
-  timestamp: Date
-}
 
 interface Table {
   id: number
   number: string
   status: TableStatus
-  orders: Order[]
+  orders: any[]
   waitTime?: number
   diners?: number
   assignedWaiter?: string
@@ -28,7 +23,6 @@ interface Table {
 
 interface TableDetailsProps {
   selectedTable: Table | null
-  markOrderAsDelivered: (tableId: number, orderId: number) => void
   changeTableStatus: (tableId: number, newStatus: TableStatus) => void
   scanQRCode: (tableId: number) => void
 }
@@ -42,10 +36,66 @@ const statusColors = {
 
 export function TableDetails({
   selectedTable,
-  markOrderAsDelivered,
   changeTableStatus,
   scanQRCode,
 }: TableDetailsProps) {
+  const [realTableOrders, setRealTableOrders] = useState<OrderWithItems[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
+
+  // Fetch real table orders when selected table changes
+  useEffect(() => {
+    const fetchTableOrders = async () => {
+      if (!selectedTable) {
+        setRealTableOrders([])
+        return
+      }
+
+      try {
+        setLoadingOrders(true)
+        const orders = await getTableOrdersForTable(selectedTable.id)
+        setRealTableOrders(orders)
+      } catch (error) {
+        console.error('Failed to fetch table orders:', error)
+        setRealTableOrders([])
+      } finally {
+        setLoadingOrders(false)
+      }
+    }
+
+    fetchTableOrders()
+  }, [selectedTable?.id])
+
+  // Real-time subscription for table orders
+  useEffect(() => {
+    if (!selectedTable) return
+
+    const tableOrdersChannel = supabase
+      .channel(`table_orders_${selectedTable.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "table_orders",
+        },
+        async () => {
+          try {
+            // Refresh orders when any table_orders change occurs
+            // We could be more specific and only refresh for the current table,
+            // but this ensures we always have the latest data
+            const orders = await getTableOrdersForTable(selectedTable.id)
+            setRealTableOrders(orders)
+          } catch (error) {
+            console.error('Failed to refresh table orders:', error)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(tableOrdersChannel)
+    }
+  }, [selectedTable?.id])
   const getStatusColor = (status: TableStatus) => {
     return statusColors[status] || "bg-gray-600 text-white border-gray-500"
   }
@@ -65,18 +115,11 @@ export function TableDetails({
     }
   }
 
-  const getOrderStatusColor = (status: OrderStatus) => {
-    switch (status) {
-      case "pendiente":
-        return "bg-orange-500 text-white border-orange-400"
-      case "en-cocina":
-        return "bg-blue-500 text-white border-blue-400"
-      case "entregado":
-        return "bg-green-500 text-white border-green-400"
-      default:
-        return "bg-gray-600 text-white border-gray-500"
-    }
-  }
+  const statusMap: Record<string, string> = {
+    pending: "in-kitchen",
+    bill_requested: "delivered",
+    waiting_order: "earning",
+  };
 
   return (
     <div className="w-100">
@@ -116,28 +159,52 @@ export function TableDetails({
 
               <div className="space-y-2 lg:space-y-3">
                 <h4 className="font-medium text-gray-100 text-xs sm:text-sm">Pedidos</h4>
-                {selectedTable.orders.length > 0 ? (
-                  selectedTable.orders.map((order) => (
+                {loadingOrders ? (
+                  <p className="text-gray-500 text-center py-4 text-sm">Cargando pedidos...</p>
+                ) : realTableOrders.length > 0 ? (
+                  realTableOrders.map((order) => (
                     <div
                       key={order.id}
-                      className="flex items-center justify-between p-2 lg:p-3 border border-gray-700 rounded-lg bg-gray-800"
+                      className="border border-gray-700 rounded-lg bg-gray-800 p-2 lg:p-3 space-y-2"
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-100 text-xs truncate">{order.item}</p>
-                        <Badge className={`${getOrderStatusColor(order.status)} mt-1 text-xs`}>
-                          {order.status}
-                        </Badge>
-                      </div>
-                      {order.status !== "entregado" && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-100 text-xs">Pedido #{order.order_id}</p>
+                          <p className="text-gray-400 text-xs">
+                            {new Date(order.created_at).toLocaleString('es-ES', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
                         <Button
                           size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white ml-2 h-8 px-2 text-xs"
-                          onClick={() => markOrderAsDelivered(selectedTable.id, order.id)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white ml-2 h-8 px-2 text-xs"
+                          onClick={() => {
+                            console.log('View order details:', order)
+                          }}
                         >
-                          <Check className="h-3 w-3 mr-1" />
-                          <span className="hidden lg:inline">Entregado</span>
+                          <span className="hidden lg:inline">Marcar como Entregado</span>
                         </Button>
-                      )}
+                      </div>
+
+                      {/* Order Items */}
+                      {order.order_items && order.order_items.length > 0 && order.order_items.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between text-xs">
+                          <Badge
+                            className={`text-xs ${item.status === 'pending' ? 'bg-orange-500 text-white' :
+                                item.status === 'preparing' ? 'bg-blue-500 text-white' :
+                                  item.status === 'ready' ? 'bg-yellow-500 text-black' :
+                                    'bg-green-500 text-white'
+                              }`}
+                          >
+                            {statusMap[item.status] || ""}
+                          </Badge>
+                          <span className="text-gray-400">${item?.total_amount || 0}</span>
+                        </div>
+                      ))}
                     </div>
                   ))
                 ) : (

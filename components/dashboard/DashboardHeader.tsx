@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { useAuth } from "@/contexts/AuthContext"
 import {
   Users,
   CheckCircle,
@@ -10,6 +11,8 @@ import {
   Coffee,
   Bell,
   BellRing,
+  LogOut,
+  User,
 } from "lucide-react"
 
 interface DashboardHeaderProps {
@@ -31,10 +34,22 @@ export function DashboardHeader({
   delayedTables,
   barTables,
 }: DashboardHeaderProps) {
+  const { profile, signOut } = useAuth()
   return (
     <header className="space-y-3 lg:space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h1>
+          {profile && (
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+              <User className="h-4 w-4" />
+              <span>{profile.name || profile.email}</span>
+              <Badge variant="outline" className="text-xs border-gray-600 text-gray-300">
+                {profile.role}
+              </Badge>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {activeNotificationsCount > 0 && (
             <Badge className="bg-red-600 text-white animate-pulse border-red-500">
@@ -48,6 +63,15 @@ export function DashboardHeader({
           >
             {soundEnabled ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
             <span className="hidden sm:inline">{soundEnabled ? "ON" : "OFF"}</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={signOut}
+            className="flex items-center gap-2 text-gray-100 hover:bg-red-700 hover:border-red-500 h-10 px-4 bg-transparent border-zinc-950"
+            title="Sign Out"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sign Out</span>
           </Button>
         </div>
       </div>
