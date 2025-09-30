@@ -23,6 +23,7 @@ interface TableDetailsProps {
   selectedTable: Table | null
   changeTableStatus: (tableId: string, newStatus: DatabaseTableStatus) => void
   scanQRCode: (tableId: string) => void
+  onLoadingChange?: (isLoading: boolean) => void
 }
 
 const statusColors = {
@@ -39,6 +40,7 @@ export function TableDetails({
   selectedTable,
   changeTableStatus,
   scanQRCode,
+  onLoadingChange,
 }: TableDetailsProps) {
   const [realTableOrders, setRealTableOrders] = useState<OrderWithItems[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
@@ -155,12 +157,14 @@ export function TableDetails({
 
       try {
         setLoadingOrders(true)
+        onLoadingChange?.(true)
         const orders = await getTableOrdersForTable(selectedTable.id)
         setRealTableOrders(orders)
       } catch (error) {
         setRealTableOrders([])
       } finally {
         setLoadingOrders(false)
+        onLoadingChange?.(false)
       }
     }
 

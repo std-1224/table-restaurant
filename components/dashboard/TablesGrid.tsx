@@ -32,6 +32,7 @@ interface TablesGridProps {
   quickFreeTable: (tableId: string) => void
   onCreateTable: () => void
   selectedTable: Table | null,
+  isLoadingOrders?: boolean
 }
 
 const statusColors = {
@@ -59,6 +60,7 @@ export function TablesGrid({
   quickFreeTable,
   onCreateTable,
   selectedTable,
+  isLoadingOrders = false,
 }: TablesGridProps) {
   const getTimeBasedColor = (waitTime?: number) => {
     if (!waitTime) return ""
@@ -116,14 +118,19 @@ export function TablesGrid({
             <div key={table.id} className={`flex flex-col space-y-1 w-full min-w-0 `}>
               <Button
                 variant="outline"
-                className={`h-32 sm:h-36 lg:h-40 w-full flex flex-col items-center justify-center gap-1 sm:gap-2 border-2 hover:scale-105 transition-all text-white font-bold rounded-lg relative
+                className={`h-32 sm:h-36 lg:h-40 w-full flex flex-col items-center justify-center gap-1 sm:gap-2 border-2 transition-all text-white font-bold rounded-lg relative
                 ${getStatusColor(table.status)}
                 ${getTimeBasedColor(table.waitTime)}
                 ${tipNotifications[table.id] ? "ring-2 ring-red-400" : ""}
                 ${table.id === selectedTable?.id ? "ring-4 ring-green-500" : ""}
+                ${isLoadingOrders ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}
 
               `}
-                onClick={() => setSelectedTable(table)}
+                onClick={() => {
+                  if (!isLoadingOrders) {
+                    setSelectedTable(table)
+                  }
+                }}
               >
 
                 {tipNotifications[table.id] && (

@@ -91,6 +91,7 @@ export default function RestaurantDashboard() {
   ])
 
   const [selectedTable, setSelectedTable] = useState<Table | null>(null)
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false)
   const [currentView, setCurrentView] = useState<"comandera" | "barra" | "supervisor">("comandera")
   const [tableFilter, setTableFilter] = useState<string>("all")
   const [barFilter, setBarFilter] = useState<string>("all")
@@ -569,6 +570,7 @@ export default function RestaurantDashboard() {
                     setSelectedTable={setSelectedTable}
                     quickFreeTable={quickFreeTable}
                     onCreateTable={() => setIsCreateTableModalOpen(true)}
+                    isLoadingOrders={isLoadingOrders}
                   />
                 )}
               </div>
@@ -577,6 +579,7 @@ export default function RestaurantDashboard() {
                   selectedTable={selectedTable}
                   changeTableStatus={changeTableStatus}
                   scanQRCode={scanQRCode}
+                  onLoadingChange={setIsLoadingOrders}
                 />
               </div>
             </div>
