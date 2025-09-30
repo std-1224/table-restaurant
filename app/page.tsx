@@ -602,6 +602,7 @@ export default function RestaurantDashboard() {
                   </div>
                 ) : (
                   <TablesGrid
+                    selectedTable={selectedTable}
                     tables={tables}
                     tableFilter={tableFilter}
                     setTableFilter={setTableFilter}

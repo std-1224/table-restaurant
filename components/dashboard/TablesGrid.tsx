@@ -31,6 +31,7 @@ interface TablesGridProps {
   setSelectedTable: (table: Table) => void
   quickFreeTable: (tableId: string) => void
   onCreateTable: () => void
+  selectedTable: Table | null,
 }
 
 const statusColors = {
@@ -57,6 +58,7 @@ export function TablesGrid({
   setSelectedTable,
   quickFreeTable,
   onCreateTable,
+  selectedTable,
 }: TablesGridProps) {
   const getTimeBasedColor = (waitTime?: number) => {
     if (!waitTime) return ""
@@ -105,12 +107,19 @@ export function TablesGrid({
       <CardContent className="p-1 sm:p-2 lg:p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
           {getFilteredTables().map((table) => (
-            <div key={table.id} className="flex flex-col space-y-1 w-full min-w-0">
+            <div key={table.id} className={`flex flex-col space-y-1 w-full min-w-0 `}>
               <Button
                 variant="outline"
-                className={`h-32 sm:h-36 lg:h-40 w-full flex flex-col items-center justify-center gap-1 sm:gap-2 ${getStatusColor(table.status)} border-2 ${getTimeBasedColor(table.waitTime)} hover:scale-105 transition-all text-white font-bold rounded-lg relative ${tipNotifications[table.id] ? "ring-2 ring-red-400" : ""}`}
+                className={`h-32 sm:h-36 lg:h-40 w-full flex flex-col items-center justify-center gap-1 sm:gap-2 border-2 hover:scale-105 transition-all text-white font-bold rounded-lg relative
+                ${getStatusColor(table.status)}
+                ${getTimeBasedColor(table.waitTime)}
+                ${tipNotifications[table.id] ? "ring-2 ring-red-400" : ""}
+                ${table.id === selectedTable?.id ? "ring-4 ring-green-500" : ""}
+
+              `}
                 onClick={() => setSelectedTable(table)}
               >
+
                 {tipNotifications[table.id] && (
                   <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                     !
