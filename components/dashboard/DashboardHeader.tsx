@@ -67,7 +67,7 @@ export function DashboardHeader({
           <Button
             variant="outline"
             onClick={signOut}
-            className="flex items-center gap-2 text-gray-100 hover:bg-red-700 hover:border-red-500 h-10 px-4 bg-transparent border-zinc-950"
+            className="flex items-center gap-2 cursor-pointer text-gray-100 hover:bg-red-700 hover:border-red-500 h-10 px-4 bg-transparent border-zinc-950"
             title="Sign Out"
           >
             <LogOut className="h-4 w-4" />
