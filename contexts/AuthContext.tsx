@@ -163,7 +163,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUser(session.user)
           
           const userProfile = await fetchProfile(session.user.id)
+          console.log('userProfile: ', userProfile)
           setProfile(userProfile)
+          console.log('profile: ', profile)
+          console.log("event: ", event)
 
           // Handle routing for auth state changes
           if (event === 'SIGNED_IN') {
