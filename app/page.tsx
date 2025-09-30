@@ -414,21 +414,6 @@ export default function RestaurantDashboard() {
     )))
   }
 
-  const handleMarkAsDelivered = async () => {
-    if (!selectedTable) return
-    try {
-        // Update table status to "delivered" (which maps to "free" in frontend)
-        await updateTableStatus(selectedTable.id, "delivered")
-
-        // Update the local state through the parent component
-        changeTableStatus(selectedTable.id, "delivered")
-      } catch (error) {
-        console.error('Error marking table as delivered:', error)
-        alert('Failed to update table status. Please try again.')
-      }
-  }
-
-
   const quickFreeTable = async (tableId: string) => {
     // Store original table state for rollback
     const originalTable = tables.find(table => table.id === tableId)
@@ -618,7 +603,6 @@ export default function RestaurantDashboard() {
                   selectedTable={selectedTable}
                   changeTableStatus={changeTableStatus}
                   scanQRCode={scanQRCode}
-                  handleMarkAsDelivered={handleMarkAsDelivered}
                 />
               </div>
             </div>

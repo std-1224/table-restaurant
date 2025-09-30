@@ -23,7 +23,6 @@ interface TableDetailsProps {
   selectedTable: Table | null
   changeTableStatus: (tableId: string, newStatus: DatabaseTableStatus) => void
   scanQRCode: (tableId: string) => void
-  handleMarkAsDelivered: () => void
 }
 
 const statusColors = {
@@ -40,11 +39,83 @@ export function TableDetails({
   selectedTable,
   changeTableStatus,
   scanQRCode,
-  handleMarkAsDelivered,
 }: TableDetailsProps) {
   const [realTableOrders, setRealTableOrders] = useState<OrderWithItems[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
-  // Fetch real table orders when selected table changes
+  const [currentTableStatus, setCurrentTableStatus] = useState<DatabaseTableStatus | null>(null)
+
+  useEffect(() => {
+    if (selectedTable) {
+      setCurrentTableStatus(selectedTable.status)
+    } else {
+      setCurrentTableStatus(null)
+    }
+  }, [selectedTable])
+
+  const handleOrderAction = async () => {
+    if (!selectedTable || !currentTableStatus) return
+
+    let newStatus: DatabaseTableStatus
+
+    switch (currentTableStatus) {
+      case "waiting_order":
+        newStatus = "producing"
+        break
+      case "producing":
+        newStatus = "delivered"
+        break
+      case "bill_requested":
+        newStatus = "paid"
+        break
+      default:
+        newStatus = "delivered"
+        return
+    }
+
+    await updateTableStatus(selectedTable.id, newStatus)
+    changeTableStatus(selectedTable.id, newStatus)
+    setCurrentTableStatus(newStatus)
+  }
+
+  const getButtonText = () => {
+    if (!currentTableStatus) return ""
+
+    switch (currentTableStatus) {
+      case "waiting_order":
+        return "Comience a Prepararse"
+      case "producing":
+        return "Confirmar entrega"
+      case "bill_requested":
+        return "Pagada"
+      case "delivered":
+        return "Entregada"
+      default:
+        return "Entregar"
+    }
+  }
+
+  const isButtonDisabled = () => {
+    if (!currentTableStatus) return true
+    return currentTableStatus === "delivered" || currentTableStatus === "free"
+  }
+
+  const getButtonColor = () => {
+    if (!currentTableStatus) return "bg-gray-600 hover:bg-gray-700"
+
+    switch (currentTableStatus) {
+      case "waiting_order":
+        return "bg-orange-600 hover:bg-orange-700"
+      case "producing":
+        return "bg-green-600 hover:bg-green-700"
+      case "bill_requested":
+        return "bg-blue-600 hover:bg-blue-700"
+      case "delivered":
+        return "bg-gray-600"
+      default:
+        return "bg-blue-600 hover:bg-blue-700"
+    }
+  }
+
   useEffect(() => {
     const fetchTableOrders = async () => {
       if (!selectedTable) {
@@ -57,7 +128,6 @@ export function TableDetails({
         const orders = await getTableOrdersForTable(selectedTable.id)
         setRealTableOrders(orders)
       } catch (error) {
-        console.error('Failed to fetch table orders:', error)
         setRealTableOrders([])
       } finally {
         setLoadingOrders(false)
@@ -67,7 +137,6 @@ export function TableDetails({
     fetchTableOrders()
   }, [selectedTable?.id])
 
-  // Real-time subscription for table orders
   useEffect(() => {
     if (!selectedTable) return
 
@@ -82,13 +151,9 @@ export function TableDetails({
         },
         async () => {
           try {
-            // Refresh orders when any table_orders change occurs
-            // We could be more specific and only refresh for the current table,
-            // but this ensures we always have the latest data
             const orders = await getTableOrdersForTable(selectedTable.id)
             setRealTableOrders(orders)
           } catch (error) {
-            console.error('Failed to refresh table orders:', error)
           }
         }
       )
@@ -98,6 +163,7 @@ export function TableDetails({
       supabase.removeChannel(tableOrdersChannel)
     }
   }, [selectedTable?.id])
+
   const getStatusColor = (status: DatabaseTableStatus) => {
     return statusColors[status] || "bg-gray-600 text-white border-gray-500"
   }
@@ -129,6 +195,12 @@ export function TableDetails({
     waiting_order: "earning",
   };
 
+  const handleStatusChange = (newStatus: DatabaseTableStatus) => {
+    if (!selectedTable) return
+    changeTableStatus(selectedTable.id, newStatus)
+    setCurrentTableStatus(newStatus)
+  }
+
   return (
     <div className="w-100">
       <Card className="bg-transparent border-zinc-950">
@@ -141,8 +213,8 @@ export function TableDetails({
           {selectedTable ? (
             <div className="space-y-3 lg:space-y-4">
               <div className="flex items-center gap-2">
-                <Badge className={`${getStatusColor(selectedTable.status)} font-medium text-xs`}>
-                  {getStatusText(selectedTable.status)}
+                <Badge className={`${getStatusColor(currentTableStatus || selectedTable.status)} font-medium text-xs`}>
+                  {getStatusText(currentTableStatus || selectedTable.status)}
                 </Badge>
                 {selectedTable.waitTime && (
                   <Badge variant="outline" className="font-medium border-gray-700 text-gray-300 text-xs">
@@ -189,15 +261,14 @@ export function TableDetails({
                         </div>
                         <Button
                           size="sm"
-                          className="bg-blue-600 hover:bg-blue-700 text-white ml-2 h-8 px-2 text-xs cursor-pointer"
-                          onClick={handleMarkAsDelivered}
-                          disabled={selectedTable.status === "delivered"}
+                          className={`${getButtonColor()} text-white ml-2 h-8 px-2 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                          onClick={handleOrderAction}
+                          disabled={isButtonDisabled()}
                         >
-                            {selectedTable.status === "producing" ? "Confirmar entrega" : selectedTable.status === "delivered" ? "Entregada" : ""}
+                          {getButtonText()}
                         </Button>
                       </div>
 
-                      {/* Order Items */}
                       {order.order_items && order.order_items.length > 0 && order.order_items.map((item) => (
                         <div key={item.id} className="flex items-center justify-between text-xs">
                           <Badge
@@ -225,28 +296,28 @@ export function TableDetails({
                   <Button
                     variant="outline"
                     className="h-8 lg:h-10 text-xs text-white hover:bg-gray-700 bg-transparent border-zinc-950"
-                    onClick={() => changeTableStatus(selectedTable.id, "free")}
+                    onClick={() => handleStatusChange("free")}
                   >
                     Libre
                   </Button>
                   <Button
                     variant="outline"
                     className="h-8 lg:h-10 text-xs text-white hover:bg-gray-700 bg-transparent border-gray-950"
-                    onClick={() => changeTableStatus(selectedTable.id, "waiting_order")}
+                    onClick={() => handleStatusChange("waiting_order")}
                   >
                     Esperando
                   </Button>
                   <Button
                     variant="outline"
                     className="h-8 lg:h-10 text-xs text-white hover:bg-gray-700 border-zinc-950 bg-transparent"
-                    onClick={() => changeTableStatus(selectedTable.id, "producing")}
+                    onClick={() => handleStatusChange("producing")}
                   >
                     En Curso
                   </Button>
                   <Button
                     variant="outline"
                     className="h-8 lg:h-10 text-xs text-white hover:bg-gray-700 border-zinc-950 bg-transparent"
-                    onClick={() => changeTableStatus(selectedTable.id, "bill_requested")}
+                    onClick={() => handleStatusChange("bill_requested")}
                   >
                     Cuenta
                   </Button>

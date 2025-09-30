@@ -81,6 +81,12 @@ export function TablesGrid({
         return "En Curso"
       case "bill_requested":
         return "Cuenta"
+      case "paid":
+        return "Pagada"
+      case "delivered":
+        return "Entregada"
+      case "waiting_order":
+        return "Esperando Orden"
       default:
         return status
     }
@@ -136,14 +142,14 @@ export function TablesGrid({
                 <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
                   <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                   {table.diners && table?.diners > 0 && (
-                    <span>Dinner: {table.diners}</span>
+                    <span>{table.diners}</span>
                   )}
                 </div>
 
                 <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
                   <Timer className="h-3 w-3 sm:h-4 sm:w-4" />
                   {table.waitTime && table.waitTime > 0 && (
-                    <span>Time: {table.waitTime}min</span>
+                    <span>{table.waitTime} min</span>
                   )}
                 </div>
 

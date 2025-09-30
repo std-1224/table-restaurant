@@ -166,8 +166,6 @@ export async function updateTableStatus(
     if (!data || data.length === 0) {
       throw new Error(`No table found with ID: ${tableId}`)
     }
-
-    console.log("Table status updated successfully:", data[0])
   } catch (error) {
     console.error("Failed to update table status:", error);
     throw error;
