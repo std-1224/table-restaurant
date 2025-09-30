@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { supabase } from "@/lib/supabase"
@@ -11,6 +11,14 @@ import { useAuth } from '@/contexts/AuthContext'
 export default function AuthPage() {
   const router = useRouter()
   const { user, profile } = useAuth()
+  const [redirectUrl, setRedirectUrl] = useState<string>('')
+
+  // Set redirect URL on client side only
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setRedirectUrl(`${window.location.origin}/auth/callback`)
+    }
+  }, [])
 
   // Redirect if user is already authenticated and has proper role
   useEffect(() => {
@@ -76,6 +84,21 @@ export default function AuthPage() {
           <CardContent className="p-6">
             <div className="text-center text-gray-300">
               Redirecting...
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Don't render auth form until redirect URL is set (client-side only)
+  if (!redirectUrl) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-gray-900 border-gray-800">
+          <CardContent className="p-6">
+            <div className="text-center text-gray-300">
+              Loading...
             </div>
           </CardContent>
         </Card>
@@ -167,7 +190,7 @@ export default function AuthPage() {
               },
             }}
             providers={['google']}
-            redirectTo={`${window.location.origin}/auth/callback`}
+            redirectTo={redirectUrl}
             onlyThirdPartyProviders={false}
             magicLink={false}
             showLinks={true}
