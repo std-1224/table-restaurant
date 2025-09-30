@@ -100,7 +100,7 @@ export function mapDatabaseTableToFrontend(dbTable: any): FrontendTable {
     diners: dbTable.current_guests,
     status: dbTable.status,
     waitTime: 0,
-    assignedWaiter: dbTable.assigned_waiter_id || undefined,
+    assignedWaiter: dbTable.assignedWaiter?.name || undefined,
     startTime: new Date(dbTable.created_at)
   }
 }

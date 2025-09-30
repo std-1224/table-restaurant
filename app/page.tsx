@@ -14,6 +14,7 @@ import { DatabaseTableStatus, getDashboardAnalytics, supabase } from "@/lib/supa
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Filter } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 type OrderStatus = "pending" | "preparing" | "ready" | "delivered"
 type NotificationType = "new_order" | "bill_request" | "waiter_call" | "special_request"
@@ -101,6 +102,7 @@ export default function RestaurantDashboard() {
 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [notificationCounter, setNotificationCounter] = useState(1)
+  const { profile } = useAuth()
 
   // Helper function to update tables and sync selected table
   const updateTablesAndSelectedTable = (newTables: Table[]) => {
@@ -306,9 +308,9 @@ export default function RestaurantDashboard() {
         number: tableData.number,
         capacity: tableData.capacity,
         status: tableData.status,
-        assignedWaiter: tableData.assignedWaiter,
+        assignedWaiter: profile?.id,
         fixedPrice: tableData.fixedPrice,
-        personalizedService: tableData.personalizedService
+        personalizedService: tableData.personalizedService,
       }
       // Create table in database
       const newTable = await createTableAPI(createData)
@@ -386,7 +388,12 @@ export default function RestaurantDashboard() {
       // Update in database
       await updateTableStatus(tableId, newStatus)
 
-      // If setting table to "free", close the current session
+      // Create table session when order is delivered
+      if (newStatus === "delivered") {
+        await createTableSession(tableId)
+      }
+
+      // Close table session when table becomes free
       if (newStatus === "free") {
         await closeTableSession(tableId)
       }
@@ -450,8 +457,7 @@ export default function RestaurantDashboard() {
     try {
       // Update in database
       await updateTableStatus(tableId, "occupied")
-      await createTableSession(tableId)
-    } catch (err) {
+      } catch (err) {
       console.error('Failed to scan QR code:', err)
       setError(err instanceof Error ? err.message : 'Failed to scan QR code')
 

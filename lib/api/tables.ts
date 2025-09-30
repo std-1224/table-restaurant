@@ -67,7 +67,12 @@ export async function fetchTables(): Promise<FrontendTable[]> {
   try {
     const { data, error } = await supabase
       .from('tables')
-      .select('*')
+      .select(`*,
+        assignedWaiter: profiles!assigned_waiter_id (
+          id,
+          name
+        )
+      `)
       .order('table_number', { ascending: true })
 
     if (error) {
@@ -111,7 +116,7 @@ export async function createTable(tableData: CreateTableData): Promise<FrontendT
         capacity: tableData.capacity,
         current_guests: tableData.status === 'free' ? 0 : tableData.capacity,
         status: tableData.status,
-        assigned_waiter_id: tableData.assignedWaiter ? generateWaiterId(tableData.assignedWaiter) : null
+        assigned_waiter_id: tableData.assignedWaiter || null
       })
       .select()
       .single()
@@ -179,6 +184,23 @@ export async function createTableSession(tableId: string): Promise<TableSession>
   try {
     const startTime = new Date()
 
+    // Check if there's already an active session for this table
+    const { data: existingSessions, error: checkError } = await supabase
+      .from('table_sessions')
+      .select('id')
+      .eq('table_id', tableId)
+      .eq('status', 'active')
+
+    if (checkError) {
+      console.error('Error checking existing sessions:', checkError)
+      throw checkError
+    }
+
+    if (existingSessions && existingSessions.length > 0) {
+      console.log(`⚠️ Active session already exists for table ${tableId}, skipping creation`)
+      return existingSessions[0] as TableSession
+    }
+
     const { data, error } = await supabase
       .from('table_sessions')
       .insert({
@@ -208,6 +230,40 @@ export async function createTableSession(tableId: string): Promise<TableSession>
 }
 
 /**
+ * Calculate total spent for a table session
+ */
+async function calculateSessionTotal(tableId: string): Promise<number> {
+  try {
+    // Get all orders for this table that are completed (delivered/paid)
+    const { data: orders, error } = await supabase
+      .from('table_orders')
+      .select(`
+        total_amount,
+        status
+      `)
+      .eq('table_id', tableId)
+      .in('status', ['delivered', 'paid'])
+
+    if (error) {
+      console.error('Error fetching orders for total calculation:', error)
+      return 0
+    }
+
+    if (!orders || orders.length === 0) {
+      return 0
+    }
+
+    // Sum up all order totals
+    const total = orders.reduce((sum, order) => sum + (order.total_amount || 0), 0)
+    console.log(`💰 Calculated session total for table ${tableId}: $${total}`)
+    return total
+  } catch (error) {
+    console.error('Failed to calculate session total:', error)
+    return 0
+  }
+}
+
+/**
  * Update table session end time (close session)
  */
 export async function closeTableSession(tableId: string): Promise<void> {
@@ -215,7 +271,7 @@ export async function closeTableSession(tableId: string): Promise<void> {
     // Find active session for this table
     const { data: activeSessions, error: findError } = await supabase
       .from('table_sessions')
-      .select('id')
+      .select('id, start_time')
       .eq('table_id', tableId)
       .eq('status', 'active')
 
@@ -229,11 +285,16 @@ export async function closeTableSession(tableId: string): Promise<void> {
       return
     }
 
+    // Calculate total spent during this session
+    const totalSpent = await calculateSessionTotal(tableId)
+
     // Close the most recent active session
+    const endTime = new Date().toISOString()
     const { error } = await supabase
       .from('table_sessions')
       .update({
-        end_time: new Date().toISOString(),
+        end_time: endTime,
+        total_spent: totalSpent,
         status: 'closed'
       })
       .eq('id', activeSessions[0].id)
@@ -242,6 +303,16 @@ export async function closeTableSession(tableId: string): Promise<void> {
       console.error('Error closing table session:', error)
       throw error
     }
+
+    // Log session details
+    const sessionDuration = new Date(endTime).getTime() - new Date(activeSessions[0].start_time).getTime()
+    const durationMinutes = Math.round(sessionDuration / (1000 * 60))
+    console.log(`🏁 Table session closed:`, {
+      tableId,
+      sessionId: activeSessions[0].id,
+      duration: `${durationMinutes} minutes`,
+      totalSpent: `$${totalSpent}`
+    })
   } catch (error) {
     console.error('Failed to close table session:', error)
     throw error
