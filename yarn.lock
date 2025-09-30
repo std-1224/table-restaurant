@@ -834,12 +834,31 @@
   resolved "https://registry.npmjs.org/@radix-ui/rect/-/rect-1.1.0.tgz"
   integrity sha512-A9+lCBZoaMJlVKcRBz2YByCG+Cp2t6nAnMnNba+XiWxnj6r4JUFqfsgwocMBZU9LPtdxC6wB56ySYpc7LQIoJg==
 
+"@stitches/core@^1.2.8":
+  version "1.2.8"
+
 "@supabase/auth-js@2.71.1":
   version "2.71.1"
   resolved "https://registry.npmjs.org/@supabase/auth-js/-/auth-js-2.71.1.tgz"
   integrity sha512-mMIQHBRc+SKpZFRB2qtupuzulaUhFYupNyxqDj5Jp/LyPvcWvjaJzZzObv6URtL/O6lPxkanASnotGtNpS3H2Q==
   dependencies:
     "@supabase/node-fetch" "^2.6.14"
+
+"@supabase/auth-ui-react@^0.4.7":
+  version "0.4.7"
+  resolved "https://registry.npmjs.org/@supabase/auth-ui-react/-/auth-ui-react-0.4.7.tgz"
+  integrity sha512-Lp4FQGFh7BMX1Y/BFaUKidbryL7eskj1fl6Lby7BeHrTctbdvDbCMjVKS8wZ2rxuI8FtPS2iU900fSb70FHknQ==
+  dependencies:
+    "@stitches/core" "^1.2.8"
+    "@supabase/auth-ui-shared" "0.1.8"
+    prop-types "^15.7.2"
+    react "^18.2.0"
+    react-dom "^18.2.0"
+
+"@supabase/auth-ui-shared@^0.1.8", "@supabase/auth-ui-shared@0.1.8":
+  version "0.1.8"
+  resolved "https://registry.npmjs.org/@supabase/auth-ui-shared/-/auth-ui-shared-0.1.8.tgz"
+  integrity sha512-ouQ0DjKcEFg+0gZigFIEgu01V3e6riGZPzgVD0MJsCBNsMsiDT74+GgCEIElMUpTGkwSja3xLwdFRFgMNFKcjg==
 
 "@supabase/functions-js@2.4.6":
   version "2.4.6"
@@ -879,7 +898,7 @@
   dependencies:
     "@supabase/node-fetch" "^2.6.14"
 
-"@supabase/supabase-js@^2.57.4":
+"@supabase/supabase-js@^2.21.0", "@supabase/supabase-js@^2.57.4":
   version "2.57.4"
   resolved "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.57.4.tgz"
   integrity sha512-LcbTzFhHYdwfQ7TRPfol0z04rLEyHabpGYANME6wkQ/kLtKNmI+Vy+WEM8HxeOZAtByUFxoUTTLwhXmrh+CcVw==
@@ -1463,7 +1482,7 @@ postcss@8.4.31:
     picocolors "^1.0.0"
     source-map-js "^1.0.2"
 
-prop-types@^15.6.2, prop-types@^15.8.1:
+prop-types@^15.6.2, prop-types@^15.7.2, prop-types@^15.8.1:
   version "15.8.1"
   resolved "https://registry.npmjs.org/prop-types/-/prop-types-15.8.1.tgz"
   integrity sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==
