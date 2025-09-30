@@ -127,19 +127,18 @@ export function TablesGrid({
                 <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
                   <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                   {table.diners && table?.diners > 0 && (
-                    <span>{table.diners}</span>
-
+                    <span>Dinner: {table.diners}</span>
                   )}
                 </div>
 
                 <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
                   <Timer className="h-3 w-3 sm:h-4 sm:w-4" />
                   {table.waitTime && table.waitTime > 0 && (
-                    <span>{table.waitTime}min</span>
+                    <span>Time: {table.waitTime}min</span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded max-w-[90%] border border-transparent">
+                <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
                   <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                   {table.assignedWaiter && (
                     <span className="truncate text-center">{table.assignedWaiter}</span>

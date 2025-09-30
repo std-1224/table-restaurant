@@ -52,7 +52,7 @@ export interface TableNotification {
 }
 
 export interface CreateTableData {
-  number: string
+  number: number
   capacity: number
   status: DatabaseTableStatus
   assignedWaiter?: string
@@ -95,7 +95,7 @@ export async function createTable(tableData: CreateTableData): Promise<FrontendT
       .from('tables')
       .select('id')
       .eq('venue_id', DEFAULT_VENUE_ID)
-      .eq('table_number', parseInt(tableData.number))
+      .eq('table_number', tableData.number)
       .single()
 
     if (existingTable) {
@@ -107,7 +107,7 @@ export async function createTable(tableData: CreateTableData): Promise<FrontendT
       .from('tables')
       .insert({
         venue_id: DEFAULT_VENUE_ID,
-        table_number: parseInt(tableData.number),
+        table_number: tableData.number,
         capacity: tableData.capacity,
         current_guests: tableData.status === 'free' ? 0 : tableData.capacity,
         status: tableData.status,

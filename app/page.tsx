@@ -292,31 +292,13 @@ export default function RestaurantDashboard() {
   }, [notificationCounter])
 
   const createTable = async (tableData: {
-    number: string
+    number: number
     capacity: number
     status: DatabaseTableStatus
     assignedWaiter?: string
     fixedPrice?: number
     personalizedService?: string
   }) => {
-    // Generate optimistic table ID
-    const optimisticId = "optimistic-" + Date.now()
-
-    // Create optimistic table object
-    const optimisticTable: Table = {
-      id: optimisticId,
-      number: tableData.number,
-      status: tableData.status,
-      orders: [],
-      waitTime: tableData.status !== "free" ? 0 : undefined,
-      diners: tableData.status === "free" ? 0 : tableData.capacity,
-      assignedWaiter: tableData.assignedWaiter,
-      startTime: tableData.status !== "free" ? new Date() : undefined,
-    }
-
-    // Optimistic update: Add table immediately to UI
-    setTables(prevTables => [...prevTables, optimisticTable])
-    setError(null)
 
     try {
       const createData: CreateTableData = {
@@ -327,24 +309,12 @@ export default function RestaurantDashboard() {
         fixedPrice: tableData.fixedPrice,
         personalizedService: tableData.personalizedService
       }
-
       // Create table in database
       const newTable = await createTableAPI(createData)
-
-      // Replace optimistic table with real table data
-      setTables(prevTables =>
-        prevTables.map(table =>
-          table.id === optimisticId ? newTable : table
-        )
-      )
+      setTables(prevTables => [...prevTables, newTable])
     } catch (err) {
       console.error('Failed to create table:', err)
       setError(err instanceof Error ? err.message : 'Failed to create table')
-
-      // Rollback: Remove optimistic table on error
-      setTables(prevTables =>
-        prevTables.filter(table => table.id !== optimisticId)
-      )
     }
   }
 

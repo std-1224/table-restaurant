@@ -19,7 +19,7 @@ interface CreateTableModalProps {
   isOpen: boolean
   onClose: () => void
   onCreateTable: (tableData: {
-    number: string
+    number: number
     capacity: number
     status: DatabaseTableStatus
     assignedWaiter?: string
@@ -30,7 +30,7 @@ interface CreateTableModalProps {
 
 export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTableModalProps) {
   const [formData, setFormData] = useState({
-    number: "",
+    number: 0,
     capacity: 4,
     status: "free" as DatabaseTableStatus,
     assignedWaiter: "none",
@@ -57,7 +57,7 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
 
       // Reset form
       setFormData({
-        number: "",
+        number: 0,
         capacity: 4,
         status: "free",
         assignedWaiter: "none",
@@ -76,7 +76,7 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
   const handleCancel = () => {
     // Reset form
     setFormData({
-      number: "",
+      number: 0,
       capacity: 4,
       status: "free",
       assignedWaiter: "none",
@@ -101,11 +101,11 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
               </Label>
               <Input
                 id="tableNumber"
-                type="text"
+                type="number"
                 value={formData.number}
-                onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, number: parseInt(e.target.value) || 0 })}
                 className="bg-gray-800 border-gray-600 text-white placeholder-gray-400"
-                placeholder="1"
+                placeholder="0"
                 required
               />
             </div>
@@ -137,16 +137,16 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-gray-700">
-                <SelectItem value="libre" className="text-white hover:bg-gray-700">
+                <SelectItem value="free" className="text-white hover:bg-gray-700">
                   Libre
                 </SelectItem>
-                <SelectItem value="esperando" className="text-white hover:bg-gray-700">
+                <SelectItem value="waiting_order" className="text-white hover:bg-gray-700">
                   Esperando
                 </SelectItem>
-                <SelectItem value="en-curso" className="text-white hover:bg-gray-700">
+                <SelectItem value="producing" className="text-white hover:bg-gray-700">
                   En Curso
                 </SelectItem>
-                <SelectItem value="cuenta-solicitada" className="text-white hover:bg-gray-700">
+                <SelectItem value="bill_requested" className="text-white hover:bg-gray-700">
                   Cuenta Solicitada
                 </SelectItem>
               </SelectContent>
