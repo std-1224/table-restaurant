@@ -191,10 +191,9 @@ export function TableDetails({
                           size="sm"
                           className="bg-blue-600 hover:bg-blue-700 text-white ml-2 h-8 px-2 text-xs cursor-pointer"
                           onClick={handleMarkAsDelivered}
+                          disabled={selectedTable.status === "delivered"}
                         >
-                          <span className="hidden lg:inline">
-                            Entregar
-                          </span>
+                            {selectedTable.status === "producing" ? "Confirmar entrega" : selectedTable.status === "delivered" ? "Entregada" : ""}
                         </Button>
                       </div>
 
