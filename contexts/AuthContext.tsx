@@ -154,19 +154,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id)
-
-        console.log('session: ', session)
         
         if (session && session.user) {
           setSession(session)
           setUser(session.user)
           
           const userProfile = await fetchProfile(session.user.id)
-          console.log('userProfile: ', userProfile)
           setProfile(userProfile)
-          console.log('profile: ', profile)
-          console.log("event: ", event)
 
           // Handle routing for auth state changes
           if (event === 'SIGNED_IN') {
