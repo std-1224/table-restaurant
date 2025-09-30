@@ -415,27 +415,6 @@ export default function RestaurantDashboard() {
   }
 
   const quickFreeTable = async (tableId: string) => {
-    // Store original table state for rollback
-    const originalTable = tables.find(table => table.id === tableId)
-    if (!originalTable) return
-
-    // Optimistic update: Update UI immediately
-    setTables(
-      tables.map((table) =>
-        table.id === tableId
-          ? {
-            ...table,
-            status: "free" as DatabaseTableStatus,
-            orders: [],
-            diners: 0,
-            waitTime: 0,
-            startTime: undefined
-          }
-          : table,
-      ),
-    )
-    setTipNotifications((prev) => ({ ...prev, [tableId]: false }))
-    setError(null)
 
     try {
       // Update in database
@@ -444,11 +423,6 @@ export default function RestaurantDashboard() {
     } catch (error) {
       console.error('Failed to free table:', error)
       setError(error instanceof Error ? error.message : 'Failed to free table')
-
-      // Rollback: Restore original table state
-      setTables(tables.map((table) => (
-        table.id === tableId ? originalTable : table
-      )))
       setTipNotifications((prev) => ({ ...prev, [tableId]: true }))
     }
   }
