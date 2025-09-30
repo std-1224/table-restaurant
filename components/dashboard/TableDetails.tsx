@@ -52,6 +52,32 @@ export function TableDetails({
     }
   }, [selectedTable])
 
+  useEffect(() => {
+    if (!selectedTable) return
+
+    const tableStatusChannel = supabase
+      .channel(`table_status_${selectedTable.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "tables",
+          filter: `id=eq.${selectedTable.id}`,
+        },
+        (payload: any) => {
+          if (payload.new?.status) {
+            setCurrentTableStatus(payload.new.status)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(tableStatusChannel)
+    }
+  }, [selectedTable?.id])
+
   const handleOrderAction = async () => {
     if (!selectedTable || !currentTableStatus) return
 
@@ -81,6 +107,12 @@ export function TableDetails({
     if (!currentTableStatus) return ""
 
     switch (currentTableStatus) {
+      case "free":
+        return "Libre"
+      case "occupied":
+        return "Esperando Orden"
+      case "paid":
+        return "Pagada"
       case "waiting_order":
         return "Comience a Prepararse"
       case "producing":
@@ -89,8 +121,6 @@ export function TableDetails({
         return "Pagada"
       case "delivered":
         return "Entregada"
-      default:
-        return "Entregar"
     }
   }
 
@@ -273,9 +303,9 @@ export function TableDetails({
                         <div key={item.id} className="flex items-center justify-between text-xs">
                           <Badge
                             className={`text-xs ${item.status === 'pending' ? 'bg-orange-500 text-white' :
-                                item.status === 'preparing' ? 'bg-blue-500 text-white' :
-                                  item.status === 'ready' ? 'bg-yellow-500 text-black' :
-                                    'bg-green-500 text-white'
+                              item.status === 'preparing' ? 'bg-blue-500 text-white' :
+                                item.status === 'ready' ? 'bg-yellow-500 text-black' :
+                                  'bg-green-500 text-white'
                               }`}
                           >
                             {statusMap[item.status] || ""}
@@ -290,7 +320,7 @@ export function TableDetails({
                 )}
               </div>
 
-              <div className="space-y-2 lg:space-y-3">
+              {/* <div className="space-y-2 lg:space-y-3">
                 <h4 className="font-medium text-gray-100 text-xs sm:text-sm">Cambiar Estado</h4>
                 <div className="grid grid-cols-2 gap-1 lg:gap-2">
                   <Button
@@ -336,7 +366,7 @@ export function TableDetails({
                     Escanear QR
                   </Button>
                 </div>
-              </div>
+              </div> */}
             </div>
           ) : (
             <p className="text-gray-500 text-center py-8 text-sm">Haz clic en una mesa</p>
