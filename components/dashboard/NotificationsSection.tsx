@@ -15,25 +15,25 @@ type NotificationType = "new_order" | "bill_request" | "waiter_call" | "special_
 interface Notification {
   id: number
   type: NotificationType
-  tableId: number
+  tableId: string
   message: string
   timestamp: Date
   dismissed: boolean
 }
 
 interface Table {
-  id: number
+  id: string
   number: string
   waitTime?: number
 }
 
 interface NotificationsSectionProps {
   activeNotifications: Notification[]
-  tipNotifications: { [key: number]: boolean }
+  tipNotifications: { [key: string]: boolean }
   tables: Table[]
   dismissNotification: (notificationId: number) => void
-  setTipNotifications: (notifications: { [key: number]: boolean }) => void
-  dismissTipNotification: (tableId: number) => void
+  setTipNotifications: (notifications: { [key: string]: boolean }) => void
+  dismissTipNotification: (tableId: string) => void
 }
 
 export function NotificationsSection({
@@ -135,12 +135,12 @@ export function NotificationsSection({
             {Object.entries(tipNotifications)
               .filter(([_, active]) => active)
               .map(([tableId, _]) => {
-                const table = tables.find((t) => t.id === Number.parseInt(tableId))
+                const table = tables.find((t) => t.id === tableId)
                 return table ? (
                   <Badge
                     key={tableId}
                     className="cursor-pointer bg-red-700 hover:bg-red-600 text-red-100 border-red-500 text-xs"
-                    onClick={() => dismissTipNotification(Number.parseInt(tableId))}
+                    onClick={() => dismissTipNotification(tableId)}
                   >
                     Mesa {table.number} - {table.waitTime}min ✕
                   </Badge>

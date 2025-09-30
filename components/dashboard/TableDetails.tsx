@@ -5,15 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Clock, QrCode, ShoppingCart, Bell } from "lucide-react"
-import { getTableOrdersForTable, OrderWithItems } from "@/lib/api/tables"
-import { supabase } from "@/lib/supabase"
-
-type TableStatus = "libre" | "esperando" | "en-curso" | "cuenta-solicitada"
+import { getTableOrdersForTable, OrderWithItems, updateTableStatus } from "@/lib/api/tables"
+import { supabase, DatabaseTableStatus } from "@/lib/supabase"
 
 interface Table {
-  id: number
+  id: string
   number: string
-  status: TableStatus
+  status: DatabaseTableStatus
   orders: any[]
   waitTime?: number
   diners?: number
@@ -23,25 +21,29 @@ interface Table {
 
 interface TableDetailsProps {
   selectedTable: Table | null
-  changeTableStatus: (tableId: number, newStatus: TableStatus) => void
-  scanQRCode: (tableId: number) => void
+  changeTableStatus: (tableId: string, newStatus: DatabaseTableStatus) => void
+  scanQRCode: (tableId: string) => void
+  handleMarkAsDelivered: () => void
 }
 
 const statusColors = {
-  libre: "bg-green-500 text-white border-green-400",
-  esperando: "bg-orange-500 text-white border-orange-400",
-  "en-curso": "bg-blue-500 text-white border-blue-400",
-  "cuenta-solicitada": "bg-red-500 text-white border-red-400",
+  free: "bg-green-500 text-white border-green-400",
+  occupied: "bg-orange-500 text-white border-orange-400",
+  producing: "bg-blue-500 text-white border-blue-400",
+  bill_requested: "bg-red-500 text-white border-red-400",
+  paid: "bg-green-500 text-white border-green-400",
+  waiting_order: "bg-yellow-500 text-white border-yellow-400",
+  delivered: "bg-green-500 text-white border-green-400",
 } as const
 
 export function TableDetails({
   selectedTable,
   changeTableStatus,
   scanQRCode,
+  handleMarkAsDelivered,
 }: TableDetailsProps) {
   const [realTableOrders, setRealTableOrders] = useState<OrderWithItems[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
-
   // Fetch real table orders when selected table changes
   useEffect(() => {
     const fetchTableOrders = async () => {
@@ -96,20 +98,26 @@ export function TableDetails({
       supabase.removeChannel(tableOrdersChannel)
     }
   }, [selectedTable?.id])
-  const getStatusColor = (status: TableStatus) => {
+  const getStatusColor = (status: DatabaseTableStatus) => {
     return statusColors[status] || "bg-gray-600 text-white border-gray-500"
   }
 
-  const getStatusText = (status: TableStatus) => {
+  const getStatusText = (status: DatabaseTableStatus) => {
     switch (status) {
-      case "libre":
+      case "free":
         return "Libre"
-      case "esperando":
+      case "occupied":
+        return "Ocupada"
+      case "waiting_order":
         return "Esperando"
-      case "en-curso":
+      case "producing":
         return "En Curso"
-      case "cuenta-solicitada":
+      case "delivered":
+        return "Entregado"
+      case "bill_requested":
         return "Cuenta"
+      case "paid":
+        return "Pagado"
       default:
         return status
     }
@@ -181,12 +189,12 @@ export function TableDetails({
                         </div>
                         <Button
                           size="sm"
-                          className="bg-blue-600 hover:bg-blue-700 text-white ml-2 h-8 px-2 text-xs"
-                          onClick={() => {
-                            console.log('View order details:', order)
-                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white ml-2 h-8 px-2 text-xs cursor-pointer"
+                          onClick={handleMarkAsDelivered}
                         >
-                          <span className="hidden lg:inline">Marcar como Entregado</span>
+                          <span className="hidden lg:inline">
+                            Entregar
+                          </span>
                         </Button>
                       </div>
 
@@ -218,28 +226,28 @@ export function TableDetails({
                   <Button
                     variant="outline"
                     className="h-8 lg:h-10 text-xs text-white hover:bg-gray-700 bg-transparent border-zinc-950"
-                    onClick={() => changeTableStatus(selectedTable.id, "libre")}
+                    onClick={() => changeTableStatus(selectedTable.id, "free")}
                   >
                     Libre
                   </Button>
                   <Button
                     variant="outline"
                     className="h-8 lg:h-10 text-xs text-white hover:bg-gray-700 bg-transparent border-gray-950"
-                    onClick={() => changeTableStatus(selectedTable.id, "esperando")}
+                    onClick={() => changeTableStatus(selectedTable.id, "waiting_order")}
                   >
                     Esperando
                   </Button>
                   <Button
                     variant="outline"
                     className="h-8 lg:h-10 text-xs text-white hover:bg-gray-700 border-zinc-950 bg-transparent"
-                    onClick={() => changeTableStatus(selectedTable.id, "en-curso")}
+                    onClick={() => changeTableStatus(selectedTable.id, "producing")}
                   >
                     En Curso
                   </Button>
                   <Button
                     variant="outline"
                     className="h-8 lg:h-10 text-xs text-white hover:bg-gray-700 border-zinc-950 bg-transparent"
-                    onClick={() => changeTableStatus(selectedTable.id, "cuenta-solicitada")}
+                    onClick={() => changeTableStatus(selectedTable.id, "bill_requested")}
                   >
                     Cuenta
                   </Button>

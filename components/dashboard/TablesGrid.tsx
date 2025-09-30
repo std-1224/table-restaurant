@@ -10,13 +10,12 @@ import {
   DollarSign,
   Home,
 } from "lucide-react"
-
-type TableStatus = "libre" | "esperando" | "en-curso" | "cuenta-solicitada"
+import { DatabaseTableStatus } from "@/lib/supabase"
 
 interface Table {
-  id: number
+  id: string
   number: string
-  status: TableStatus
+  status: DatabaseTableStatus
   orders: any[]
   waitTime?: number
   diners?: number
@@ -28,17 +27,20 @@ interface TablesGridProps {
   tables: Table[]
   tableFilter: string
   setTableFilter: (filter: string) => void
-  tipNotifications: { [key: number]: boolean }
+  tipNotifications: { [key: string]: boolean }
   setSelectedTable: (table: Table) => void
-  quickFreeTable: (tableId: number) => void
+  quickFreeTable: (tableId: string) => void
   onCreateTable: () => void
 }
 
 const statusColors = {
-  libre: "bg-green-500 text-white border-green-400",
-  esperando: "bg-orange-500 text-white border-orange-400",
-  "en-curso": "bg-blue-500 text-white border-blue-400",
-  "cuenta-solicitada": "bg-red-500 text-white border-red-400",
+  free: "bg-green-500 text-white border-green-400",
+  occupied: "bg-orange-500 text-white border-orange-400",
+  producing: "bg-blue-500 text-white border-blue-400",
+  bill_requested: "bg-red-500 text-white border-red-400",
+  paid: "bg-green-500 text-white border-green-400",
+  waiting_order: "bg-yellow-500 text-white border-yellow-400",
+  delivered: "bg-green-500 text-white border-green-400",
 } as const
 
 const timeColors = {
@@ -63,19 +65,19 @@ export function TablesGrid({
     return timeColors.slow
   }
 
-  const getStatusColor = (status: TableStatus) => {
+  const getStatusColor = (status: DatabaseTableStatus) => {
     return statusColors[status] || "bg-gray-600 text-white border-gray-500"
   }
 
-  const getStatusText = (status: TableStatus) => {
+  const getStatusText = (status: DatabaseTableStatus) => {
     switch (status) {
-      case "libre":
+      case "free":
         return "Libre"
-      case "esperando":
+      case "occupied":
         return "Esperando"
-      case "en-curso":
+      case "producing":
         return "En Curso"
-      case "cuenta-solicitada":
+      case "bill_requested":
         return "Cuenta"
       default:
         return status
@@ -87,80 +89,84 @@ export function TablesGrid({
       case "delayed":
         return tables.filter((t) => t.waitTime && t.waitTime > 15)
       case "bill_requested":
-        return tables.filter((t) => t.status === "cuenta-solicitada")
+        return tables.filter((t) => t.status === "bill_requested")
       case "occupied":
-        return tables.filter((t) => t.status !== "libre")
+        return tables.filter((t) => t.status !== "free")
       default:
         return tables
     }
   }
 
   return (
-      <Card className="border-zinc-950 bg-transparent">
-        <CardHeader className="pb-3 lg:pb-4">
-          <CardTitle className="text-base sm:text-lg text-gray-100">Mesas</CardTitle>
-        </CardHeader>
-        <CardContent className="p-1 sm:p-2 lg:p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
-            {getFilteredTables().map((table) => (
-              <div key={table.id} className="flex flex-col space-y-1 w-full min-w-0">
-                <Button
-                  variant="outline"
-                  className={`h-32 sm:h-36 lg:h-40 w-full flex flex-col items-center justify-center gap-1 sm:gap-2 ${getStatusColor(table.status)} border-2 ${getTimeBasedColor(table.waitTime)} hover:scale-105 transition-all text-white font-bold rounded-lg relative ${tipNotifications[table.id] ? "ring-2 ring-red-400" : ""}`}
-                  onClick={() => setSelectedTable(table)}
-                >
-                  {tipNotifications[table.id] && (
-                    <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                      !
-                    </div>
-                  )}
-                  <span className="text-sm sm:text-base font-bold">Mesa {table.number}</span>
-                  <Badge
-                    variant="secondary"
-                    className="text-xs font-medium bg-gray-100 text-gray-900 px-1.5 py-0.5 border border-gray-300"
-                  >
-                    {getStatusText(table.status)}
-                  </Badge>
-                  {table.diners && table?.diners > 0 && (
-                    <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
-                      <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                      <span>{table.diners}</span>
-                    </div>
-                  )}
-                  {table.waitTime && table.waitTime > 0 && (
-                    <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
-                      <Timer className="h-3 w-3 sm:h-4 sm:w-4" />
-                      <span>{table.waitTime}min</span>
-                    </div>
-                  )}
-                  {table.assignedWaiter && (
-                    <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded max-w-[90%] border border-transparent">
-                      <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="truncate text-center">{table.assignedWaiter}</span>
-                    </div>
-                  )}
-                </Button>
-
-                {table.status !== "libre" && (
-                  <div className="flex justify-center gap-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-12 w-12 p-0 bg-blue-800/90 border-blue-500 text-blue-100 hover:bg-blue-700 hover:border-blue-400 rounded-lg"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        quickFreeTable(table.id)
-                      }}
-                      title="Liberar mesa"
-                    >
-                      <Home className="h-5 w-5" />
-                    </Button>
+    <Card className="border-zinc-950 bg-transparent">
+      <CardHeader className="pb-3 lg:pb-4">
+        <CardTitle className="text-base sm:text-lg text-gray-100">Mesas</CardTitle>
+      </CardHeader>
+      <CardContent className="p-1 sm:p-2 lg:p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+          {getFilteredTables().map((table) => (
+            <div key={table.id} className="flex flex-col space-y-1 w-full min-w-0">
+              <Button
+                variant="outline"
+                className={`h-32 sm:h-36 lg:h-40 w-full flex flex-col items-center justify-center gap-1 sm:gap-2 ${getStatusColor(table.status)} border-2 ${getTimeBasedColor(table.waitTime)} hover:scale-105 transition-all text-white font-bold rounded-lg relative ${tipNotifications[table.id] ? "ring-2 ring-red-400" : ""}`}
+                onClick={() => setSelectedTable(table)}
+              >
+                {tipNotifications[table.id] && (
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    !
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                <span className="text-sm sm:text-base font-bold">Mesa {table.number}</span>
+                <Badge
+                  variant="secondary"
+                  className="text-xs font-medium bg-gray-100 text-gray-900 px-1.5 py-0.5 border border-gray-300"
+                >
+                  {getStatusText(table.status)}
+                </Badge>
+
+                <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
+                  <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                  {table.diners && table?.diners > 0 && (
+                    <span>{table.diners}</span>
+
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded border border-transparent">
+                  <Timer className="h-3 w-3 sm:h-4 sm:w-4" />
+                  {table.waitTime && table.waitTime > 0 && (
+                    <span>{table.waitTime}min</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 text-xs bg-black/40 px-1.5 py-0.5 rounded max-w-[90%] border border-transparent">
+                  <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  {table.assignedWaiter && (
+                    <span className="truncate text-center">{table.assignedWaiter}</span>
+                  )}
+                </div>
+              </Button>
+
+              {table.status !== "free" && (
+                <div className="flex justify-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-12 w-12 p-0 bg-blue-800/90 border-blue-500 text-blue-100 hover:bg-blue-700 hover:border-blue-400 rounded-lg"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      quickFreeTable(table.id)
+                    }}
+                    title="Liberar mesa"
+                  >
+                    <Home className="h-5 w-5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

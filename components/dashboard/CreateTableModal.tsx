@@ -13,8 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-
-type TableStatus = "libre" | "esperando" | "en-curso" | "cuenta-solicitada"
+import { DatabaseTableStatus } from "@/lib/supabase"
 
 interface CreateTableModalProps {
   isOpen: boolean
@@ -22,7 +21,7 @@ interface CreateTableModalProps {
   onCreateTable: (tableData: {
     number: string
     capacity: number
-    status: TableStatus
+    status: DatabaseTableStatus
     assignedWaiter?: string
     fixedPrice?: number
     personalizedService?: string
@@ -33,7 +32,7 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
   const [formData, setFormData] = useState({
     number: "",
     capacity: 4,
-    status: "libre" as TableStatus,
+    status: "free" as DatabaseTableStatus,
     assignedWaiter: "none",
     fixedPrice: 0,
     personalizedService: "",
@@ -60,7 +59,7 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
       setFormData({
         number: "",
         capacity: 4,
-        status: "libre",
+        status: "free",
         assignedWaiter: "none",
         fixedPrice: 0,
         personalizedService: "",
@@ -79,7 +78,7 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
     setFormData({
       number: "",
       capacity: 4,
-      status: "libre",
+      status: "free",
       assignedWaiter: "none",
       fixedPrice: 0,
       personalizedService: "",
@@ -133,7 +132,7 @@ export function CreateTableModal({ isOpen, onClose, onCreateTable }: CreateTable
             <Label htmlFor="status" className="text-sm font-medium text-gray-300">
               Estado
             </Label>
-            <Select value={formData.status} onValueChange={(value: TableStatus) => setFormData({ ...formData, status: value })}>
+            <Select value={formData.status} onValueChange={(value: DatabaseTableStatus) => setFormData({ ...formData, status: value })}>
               <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                 <SelectValue />
               </SelectTrigger>

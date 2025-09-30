@@ -1,4 +1,4 @@
-import { supabase, FrontendTable, mapDatabaseTableToFrontend, mapFrontendStatusToDatabase, FrontendTableStatus } from '../supabase'
+import { supabase, DatabaseTableStatus, FrontendTable, mapDatabaseStatusToFrontend, mapDatabaseTableToFrontend} from '../supabase'
 
 // Default venue ID - in a real app, this would come from user authentication
 const DEFAULT_VENUE_ID = null;
@@ -54,7 +54,7 @@ export interface TableNotification {
 export interface CreateTableData {
   number: string
   capacity: number
-  status: FrontendTableStatus
+  status: DatabaseTableStatus
   assignedWaiter?: string
   fixedPrice?: number
   personalizedService?: string
@@ -78,9 +78,7 @@ export async function fetchTables(): Promise<FrontendTable[]> {
     if (!data) {
       return []
     }
-
-    // Convert database tables to frontend format
-    return data.map(mapDatabaseTableToFrontend)
+    return data.map((dbTable) => mapDatabaseTableToFrontend(dbTable))
   } catch (error) {
     console.error('Failed to fetch tables:', error)
     throw error
@@ -111,8 +109,8 @@ export async function createTable(tableData: CreateTableData): Promise<FrontendT
         venue_id: DEFAULT_VENUE_ID,
         table_number: parseInt(tableData.number),
         capacity: tableData.capacity,
-        current_guests: tableData.status === 'libre' ? 0 : tableData.capacity,
-        status: mapFrontendStatusToDatabase(tableData.status),
+        current_guests: tableData.status === 'free' ? 0 : tableData.capacity,
+        status: tableData.status,
         assigned_waiter_id: tableData.assignedWaiter ? generateWaiterId(tableData.assignedWaiter) : null
       })
       .select()
@@ -127,7 +125,7 @@ export async function createTable(tableData: CreateTableData): Promise<FrontendT
       throw new Error('No data returned from table creation')
     }
 
-    return mapDatabaseTableToFrontend(data)
+    return data
   } catch (error) {
     console.error('Failed to create table:', error)
     throw error
@@ -137,76 +135,56 @@ export async function createTable(tableData: CreateTableData): Promise<FrontendT
 /**
  * Update table status
  */
-export async function updateTableStatus(tableId: number, newStatus: FrontendTableStatus): Promise<void> {
+export async function updateTableStatus(
+  tableId: string,
+  newStatus: DatabaseTableStatus
+): Promise<void> {
+  console.log('Updating table status:', { tableId, newStatus })
+
   try {
-    // Find the table by converting frontend ID back to database format
-    const { data: tables } = await supabase
-      .from('tables')
-      .select('id, table_number')
-
-    if (!tables) {
-      throw new Error('No tables found')
+    const updateData: any = {
+      status: newStatus,
+      updated_at: new Date().toISOString()
     }
 
-    // Find matching table (this is a workaround for the ID conversion)
-    const targetTable = tables.find(table => {
-      const frontendId = parseInt(table.id.split('-')[0], 16) % 10000
-      return frontendId === tableId
-    })
-
-    if (!targetTable) {
-      throw new Error(`Table with ID ${tableId} not found`)
+    // Reset current_guests to 0 when table becomes free
+    if (newStatus === "free") {
+      updateData.current_guests = 0
     }
 
-    const dbStatus = mapFrontendStatusToDatabase(newStatus)
-    
-    const { error } = await supabase
-      .from('tables')
-      .update({ 
-        status: dbStatus,
-        current_guests: newStatus === 'libre' ? 0 : undefined
-      })
-      .eq('id', targetTable.id)
+    const { data, error } = await supabase
+      .from("tables")
+      .update(updateData)
+      .eq("id", tableId)
+      .select()
 
     if (error) {
-      console.error('Error updating table status:', error)
-      throw error
+      console.error("Error updating table status:", error);
+      throw error;
     }
+
+    if (!data || data.length === 0) {
+      throw new Error(`No table found with ID: ${tableId}`)
+    }
+
+    console.log("Table status updated successfully:", data[0])
   } catch (error) {
-    console.error('Failed to update table status:', error)
-    throw error
+    console.error("Failed to update table status:", error);
+    throw error;
   }
 }
 
 /**
  * Create a new table session
  */
-export async function createTableSession(tableId: number): Promise<TableSession> {
+export async function createTableSession(tableId: string): Promise<TableSession> {
   try {
-    // Find the table by converting frontend ID back to database format
-    const { data: tables } = await supabase
-      .from('tables')
-      .select('id')
-
-    if (!tables) {
-      throw new Error('No tables found')
-    }
-
-    const targetTable = tables.find(table => {
-      const frontendId = parseInt(table.id.split('-')[0], 16) % 10000
-      return frontendId === tableId
-    })
-
-    if (!targetTable) {
-      throw new Error(`Table with ID ${tableId} not found`)
-    }
-
     const startTime = new Date()
 
     const { data, error } = await supabase
       .from('table_sessions')
       .insert({
-        table_id: targetTable.id,
+        table_id: tableId,
         start_time: startTime.toISOString(),
         end_time: null,
         total_spent: 0,
@@ -234,31 +212,13 @@ export async function createTableSession(tableId: number): Promise<TableSession>
 /**
  * Update table session end time (close session)
  */
-export async function closeTableSession(tableId: number): Promise<void> {
+export async function closeTableSession(tableId: string): Promise<void> {
   try {
-    // Find the table by converting frontend ID back to database format
-    const { data: tables } = await supabase
-      .from('tables')
-      .select('id')
-
-    if (!tables) {
-      throw new Error('No tables found')
-    }
-
-    const targetTable = tables.find(table => {
-      const frontendId = parseInt(table.id.split('-')[0], 16) % 10000
-      return frontendId === tableId
-    })
-
-    if (!targetTable) {
-      throw new Error(`Table with ID ${tableId} not found`)
-    }
-
     // Find active session for this table
     const { data: activeSessions, error: findError } = await supabase
       .from('table_sessions')
       .select('id')
-      .eq('table_id', targetTable.id)
+      .eq('table_id', tableId)
       .eq('status', 'active')
 
     if (findError) {
@@ -296,32 +256,14 @@ export async function closeTableSession(tableId: number): Promise<void> {
  * Create a new table notification
  */
 export async function createTableNotification(
-  tableId: number,
+  tableId: string,
   type: 'waiter_call' | 'bill_request' | 'special_request' | 'new_order'
 ): Promise<TableNotification> {
   try {
-    // Find the table by converting frontend ID back to database format
-    const { data: tables } = await supabase
-      .from('tables')
-      .select('id')
-
-    if (!tables) {
-      throw new Error('No tables found')
-    }
-
-    const targetTable = tables.find(table => {
-      const frontendId = parseInt(table.id.split('-')[0], 16) % 10000
-      return frontendId === tableId
-    })
-
-    if (!targetTable) {
-      throw new Error(`Table with ID ${tableId} not found`)
-    }
-
     const { data, error } = await supabase
       .from('table_notifications')
       .insert({
-        table_id: targetTable.id,
+        table_id: tableId,
         type: type,
         status: 'pending'
       })
@@ -347,31 +289,13 @@ export async function createTableNotification(
 /**
  * Get table orders with order items for a specific table
  */
-export async function getTableOrdersForTable(tableId: number): Promise<OrderWithItems[]> {
+export async function getTableOrdersForTable(tableId: string): Promise<OrderWithItems[]> {
   try {
-    // Find the table by converting frontend ID back to database format
-    const { data: tables } = await supabase
-      .from('tables')
-      .select('id')
-
-    if (!tables) {
-      throw new Error('No tables found')
-    }
-
-    const targetTable = tables.find(table => {
-      const frontendId = parseInt(table.id.split('-')[0], 16) % 10000
-      return frontendId === tableId
-    })
-
-    if (!targetTable) {
-      throw new Error(`Table with ID ${tableId} not found`)
-    }
-
     // Get table orders
     const { data: tableOrders, error: tableOrdersError } = await supabase
       .from('table_orders')
       .select('*')
-      .eq('table_id', targetTable.id)
+      .eq('table_id', tableId)
       .order('created_at', { ascending: false })
 
     if (tableOrdersError) {

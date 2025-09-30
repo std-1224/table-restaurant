@@ -10,25 +10,23 @@ import { BarOrders } from "@/components/dashboard/BarOrders"
 import { SupervisorView } from "@/components/dashboard/SupervisorView"
 import { CreateTableModal } from "@/components/dashboard/CreateTableModal"
 import { fetchTables, createTable as createTableAPI, updateTableStatus, CreateTableData, createTableSession, createTableNotification, closeTableSession } from "@/lib/api/tables"
-import { getDashboardAnalytics, DatabaseTableStatus, mapFrontendStatusToDatabase, supabase } from "@/lib/supabase"
+import { DatabaseTableStatus, getDashboardAnalytics, supabase } from "@/lib/supabase"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Filter } from "lucide-react"
 
-type TableStatus = "libre" | "esperando" | "en-curso" | "cuenta-solicitada"
-type OrderStatus = "pendiente" | "en-cocina" | "entregado"
+type OrderStatus = "pending" | "preparing" | "ready" | "delivered"
 type NotificationType = "new_order" | "bill_request" | "waiter_call" | "special_request"
 
 interface Table {
-  id: number
+  id: string
   number: string
-  status: TableStatus
+  status: DatabaseTableStatus
   orders: Order[]
   waitTime?: number
   diners?: number
   assignedWaiter?: string
   startTime?: Date
-  dbStatus?: DatabaseTableStatus // Keep original database status for dashboard calculations
 }
 
 interface Order {
@@ -51,7 +49,7 @@ interface BarOrder {
 interface Notification {
   id: number
   type: NotificationType
-  tableId: number
+  tableId: string
   message: string
   timestamp: Date
   dismissed: boolean
@@ -66,7 +64,7 @@ export default function RestaurantDashboard() {
     {
       id: 1,
       items: ["Mojito", "Cerveza Corona"],
-      status: "pendiente",
+      status: "pending",
       barId: 1,
       timestamp: new Date(Date.now() - 3 * 60000),
       assignedBartender: "Pedro",
@@ -75,7 +73,7 @@ export default function RestaurantDashboard() {
     {
       id: 2,
       items: ["Whisky Sour"],
-      status: "en-cocina",
+      status: "preparing",
       barId: 1,
       timestamp: new Date(Date.now() - 7 * 60000),
       assignedBartender: "Pedro",
@@ -84,7 +82,7 @@ export default function RestaurantDashboard() {
     {
       id: 3,
       items: ["Margarita", "Tequila Shot"],
-      status: "entregado",
+      status: "ready",
       barId: 2,
       timestamp: new Date(Date.now() - 15 * 60000),
       assignedBartender: "Sofia",
@@ -96,7 +94,7 @@ export default function RestaurantDashboard() {
   const [currentView, setCurrentView] = useState<"comandera" | "barra" | "supervisor">("comandera")
   const [tableFilter, setTableFilter] = useState<string>("all")
   const [barFilter, setBarFilter] = useState<string>("all")
-  const [tipNotifications, setTipNotifications] = useState<{ [key: number]: boolean }>({})
+  const [tipNotifications, setTipNotifications] = useState<{ [key: string]: boolean }>({})
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [isCreateTableModalOpen, setIsCreateTableModalOpen] = useState(false)
 
@@ -296,13 +294,13 @@ export default function RestaurantDashboard() {
   const createTable = async (tableData: {
     number: string
     capacity: number
-    status: TableStatus
+    status: DatabaseTableStatus
     assignedWaiter?: string
     fixedPrice?: number
     personalizedService?: string
   }) => {
     // Generate optimistic table ID
-    const optimisticId = Date.now() % 10000
+    const optimisticId = "optimistic-" + Date.now()
 
     // Create optimistic table object
     const optimisticTable: Table = {
@@ -310,11 +308,10 @@ export default function RestaurantDashboard() {
       number: tableData.number,
       status: tableData.status,
       orders: [],
-      waitTime: tableData.status !== "libre" ? 0 : undefined,
-      diners: tableData.status === "libre" ? 0 : tableData.capacity,
+      waitTime: tableData.status !== "free" ? 0 : undefined,
+      diners: tableData.status === "free" ? 0 : tableData.capacity,
       assignedWaiter: tableData.assignedWaiter,
-      startTime: tableData.status !== "libre" ? new Date() : undefined,
-      dbStatus: mapFrontendStatusToDatabase(tableData.status)
+      startTime: tableData.status !== "free" ? new Date() : undefined,
     }
 
     // Optimistic update: Add table immediately to UI
@@ -361,7 +358,7 @@ export default function RestaurantDashboard() {
     const interval = setInterval(() => {
       setTables((prevTables) => {
         const updatedTables = prevTables.map((table) => {
-          if (table.startTime && table.status !== "libre") {
+          if (table.startTime && table.status !== "free") {
             const waitTime = Math.floor((Date.now() - table.startTime.getTime()) / 60000)
 
             if (waitTime >= 20 && !tipNotifications[table.id]) {
@@ -389,25 +386,23 @@ export default function RestaurantDashboard() {
     return () => clearInterval(interval)
   }, [tipNotifications, soundEnabled, selectedTable?.id])
 
-  const dismissTipNotification = (tableId: number) => {
+  const dismissTipNotification = (tableId: string) => {
     setTipNotifications((prev) => ({ ...prev, [tableId]: false }))
   }
 
-  const changeTableStatus = async (tableId: number, newStatus: TableStatus) => {
+  const changeTableStatus = async (tableId: string, newStatus: DatabaseTableStatus) => {
     // Store original table state for rollback
     const originalTable = tables.find(table => table.id === tableId)
     if (!originalTable) return
 
     // Optimistic update: Update UI immediately
-    const newDbStatus = mapFrontendStatusToDatabase(newStatus)
     setTables(tables.map((table) => (
       table.id === tableId
         ? {
           ...table,
           status: newStatus,
-          dbStatus: newDbStatus,
           // Reset table data when setting to libre
-          ...(newStatus === "libre" && {
+          ...(newStatus === "free" && {
             orders: [],
             diners: 0,
             waitTime: 0,
@@ -416,15 +411,12 @@ export default function RestaurantDashboard() {
         }
         : table
     )))
-    setSelectedTable(null)
-    setError(null)
-
     try {
       // Update in database
       await updateTableStatus(tableId, newStatus)
 
-      // If setting table to "libre", close the current session
-      if (newStatus === "libre") {
+      // If setting table to "free", close the current session
+      if (newStatus === "free") {
         await closeTableSession(tableId)
       }
     } catch (err) {
@@ -446,13 +438,28 @@ export default function RestaurantDashboard() {
 
     // Reset wait time for all tables that are "en-curso" (keep status as "En Curso")
     setTables(tables.map((table) => (
-      table.status === "en-curso"
+      table.status === "producing"
         ? { ...table, waitTime: 0, startTime: new Date() }
         : table
     )))
   }
 
-  const quickFreeTable = async (tableId: number) => {
+  const handleMarkAsDelivered = async () => {
+    if (!selectedTable) return
+    try {
+        // Update table status to "delivered" (which maps to "free" in frontend)
+        await updateTableStatus(selectedTable.id, "delivered")
+
+        // Update the local state through the parent component
+        changeTableStatus(selectedTable.id, "delivered")
+      } catch (error) {
+        console.error('Error marking table as delivered:', error)
+        alert('Failed to update table status. Please try again.')
+      }
+  }
+
+
+  const quickFreeTable = async (tableId: string) => {
     // Store original table state for rollback
     const originalTable = tables.find(table => table.id === tableId)
     if (!originalTable) return
@@ -463,8 +470,7 @@ export default function RestaurantDashboard() {
         table.id === tableId
           ? {
             ...table,
-            status: "libre" as TableStatus,
-            dbStatus: "free" as DatabaseTableStatus,
+            status: "free" as DatabaseTableStatus,
             orders: [],
             diners: 0,
             waitTime: 0,
@@ -478,7 +484,7 @@ export default function RestaurantDashboard() {
 
     try {
       // Update in database
-      await updateTableStatus(tableId, "libre")
+      await updateTableStatus(tableId, "free")
       await closeTableSession(tableId)
     } catch (error) {
       console.error('Failed to free table:', error)
@@ -492,7 +498,7 @@ export default function RestaurantDashboard() {
     }
   }
 
-  const scanQRCode = async (tableId: number) => {
+  const scanQRCode = async (tableId: string) => {
     // Store original table state for rollback
     const originalTable = tables.find(table => table.id === tableId)
     if (!originalTable) return
@@ -502,8 +508,7 @@ export default function RestaurantDashboard() {
       table.id === tableId
         ? {
           ...table,
-          status: "esperando" as TableStatus,
-          dbStatus: "occupied" as DatabaseTableStatus,
+          status: "occupied" as DatabaseTableStatus,
           startTime: new Date(),
           waitTime: 0
         }
@@ -514,7 +519,7 @@ export default function RestaurantDashboard() {
 
     try {
       // Update in database
-      await updateTableStatus(tableId, "esperando")
+      await updateTableStatus(tableId, "occupied")
       await createTableSession(tableId)
     } catch (err) {
       console.error('Failed to scan QR code:', err)
@@ -642,6 +647,7 @@ export default function RestaurantDashboard() {
                   selectedTable={selectedTable}
                   changeTableStatus={changeTableStatus}
                   scanQRCode={scanQRCode}
+                  handleMarkAsDelivered={handleMarkAsDelivered}
                 />
               </div>
             </div>

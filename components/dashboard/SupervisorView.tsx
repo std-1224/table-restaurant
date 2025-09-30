@@ -3,33 +3,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Eye } from "lucide-react"
-
-type TableStatus = "libre" | "esperando" | "en-curso" | "cuenta-solicitada"
-
-interface Table {
-  id: number
-  number: string
-  status: TableStatus
-  orders: any[]
-  waitTime?: number
-  diners?: number
-  assignedWaiter?: string
-  startTime?: Date
-}
+import { DatabaseTableStatus, FrontendTable } from "@/lib/supabase"
 
 interface SupervisorViewProps {
-  tables: Table[]
+  tables: FrontendTable[]
 }
 
 const statusColors = {
-  libre: "bg-green-500 text-white border-green-400",
-  esperando: "bg-orange-500 text-white border-orange-400",
-  "en-curso": "bg-blue-500 text-white border-blue-400",
-  "cuenta-solicitada": "bg-red-500 text-white border-red-400",
+  free: "bg-green-500 text-white border-green-400",
+  occupied: "bg-orange-500 text-white border-orange-400",
+  producing: "bg-blue-500 text-white border-blue-400",
+  bill_requested: "bg-red-500 text-white border-red-400",
+  paid: "bg-green-500 text-white border-green-400",
+  waiting_order: "bg-yellow-500 text-white border-yellow-400",
+  delivered: "bg-green-500 text-white border-green-400",
 } as const
 
 export function SupervisorView({ tables }: SupervisorViewProps) {
-  const getStatusColor = (status: TableStatus) => {
+  const getStatusColor = (status: DatabaseTableStatus) => {
     return statusColors[status] || "bg-gray-600 text-white border-gray-500"
   }
 
@@ -64,7 +55,7 @@ export function SupervisorView({ tables }: SupervisorViewProps) {
             <h3 className="font-medium mb-3 text-white text-sm lg:text-base">Personal</h3>
             <div className="space-y-2">
               {["Carlos", "María", "Ana", "Luis"].map((waiter) => {
-                const waiterTables = tables.filter((t) => t.assignedWaiter === waiter && t.status !== "libre")
+                const waiterTables = tables.filter((t) => t.assignedWaiter === waiter && t.status !== "free")
                 return (
                   <div key={waiter} className="border-zinc-950 bg-transparent">
                     <span className="font-medium text-white text-sm">{waiter}</span>

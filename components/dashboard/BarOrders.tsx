@@ -14,7 +14,7 @@ import {
   CheckCircle,
 } from "lucide-react"
 
-type OrderStatus = "pendiente" | "en-cocina" | "entregado"
+type OrderStatus = "pending" | "preparing" | "ready" | "delivered"
 
 interface BarOrder {
   id: number
@@ -41,11 +41,11 @@ export function BarOrders({
 }: BarOrdersProps) {
   const getOrderStatusColor = (status: OrderStatus) => {
     switch (status) {
-      case "pendiente":
+      case "pending":
         return "bg-orange-500 text-white border-orange-400"
-      case "en-cocina":
+      case "preparing":
         return "bg-blue-500 text-white border-blue-400"
-      case "entregado":
+      case "ready":
         return "bg-green-500 text-white border-green-400"
       default:
         return "bg-gray-600 text-white border-gray-500"
@@ -57,12 +57,12 @@ export function BarOrders({
       case "urgent":
         return barOrders.filter((o) => {
           const waitTime = Math.floor((Date.now() - o.timestamp.getTime()) / 60000)
-          return waitTime > 10 && o.status !== "entregado"
+          return waitTime > 10 && o.status !== "ready"
         })
       case "cocktails":
         return barOrders.filter((o) => o.drinkTypes?.["Cocktails"])
       case "pending":
-        return barOrders.filter((o) => o.status !== "entregado")
+        return barOrders.filter((o) => o.status !== "ready")
       default:
         return barOrders
     }
@@ -117,7 +117,7 @@ export function BarOrders({
                       ))}
                     </div>
                   )}
-                  {order.status !== "entregado" && (
+                  {order.status !== "ready" && (
                     <Button
                       className="w-full bg-green-600 hover:bg-green-700 text-white h-8 lg:h-10 text-xs lg:text-sm"
                       onClick={() => markBarOrderAsDelivered(order.id)}
@@ -175,7 +175,7 @@ export function BarOrders({
               <div>
                 <p className="text-xs lg:text-sm text-gray-400">Pendientes</p>
                 <p className="text-lg lg:text-2xl font-bold text-white">
-                  {barOrders.filter((o) => o.status === "pendiente").length}
+                  {barOrders.filter((o) => o.status === "pending").length}
                 </p>
               </div>
             </div>
@@ -184,7 +184,7 @@ export function BarOrders({
               <div>
                 <p className="text-xs lg:text-sm text-gray-400">Preparando</p>
                 <p className="text-lg lg:text-2xl font-bold text-white">
-                  {barOrders.filter((o) => o.status === "en-cocina").length}
+                  {barOrders.filter((o) => o.status === "preparing").length}
                 </p>
               </div>
             </div>
@@ -193,7 +193,7 @@ export function BarOrders({
               <div>
                 <p className="text-xs lg:text-sm text-gray-400">Entregados</p>
                 <p className="text-lg lg:text-2xl font-bold text-white">
-                  {barOrders.filter((o) => o.status === "entregado").length}
+                  {barOrders.filter((o) => o.status === "delivered").length}
                 </p>
               </div>
             </div>
