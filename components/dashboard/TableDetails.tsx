@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Clock, QrCode, ShoppingCart, Bell } from "lucide-react"
+import { Clock, Currency } from "lucide-react"
 import { getTableOrdersForTable, OrderWithItems, updateTableStatus } from "@/lib/api/tables"
 import { supabase, DatabaseTableStatus } from "@/lib/supabase"
 
@@ -45,7 +45,7 @@ export function TableDetails({
   const [realTableOrders, setRealTableOrders] = useState<OrderWithItems[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
   const [currentTableStatus, setCurrentTableStatus] = useState<DatabaseTableStatus | null>(null)
-
+  const [totalSpent, setTotalSpent] = useState<number | 0>(0)
   useEffect(() => {
     if (selectedTable) {
       setCurrentTableStatus(selectedTable.status)
@@ -75,9 +75,76 @@ export function TableDetails({
       )
       .subscribe()
 
+    const tableSessionChannel = supabase
+      .channel(`table_sessions_${selectedTable.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "table_sessions",
+          filter: `table_id=eq.${selectedTable.id}`,
+        },
+        (payload: any) => {
+          // Handle different event types
+          switch (payload.eventType) {
+            case 'INSERT':
+              if (payload.new?.total_spent !== undefined) {
+                setTotalSpent(payload.new.total_spent)
+              }
+              break
+            case 'UPDATE':
+              if (payload.new?.total_spent !== undefined) {
+                setTotalSpent(payload.new.total_spent)
+              }
+              break
+            case 'DELETE':
+              setTotalSpent(0)
+              break
+          }
+        }
+      )
+      .subscribe()
+
     return () => {
+      supabase.removeChannel(tableSessionChannel)
       supabase.removeChannel(tableStatusChannel)
     }
+  }, [selectedTable?.id])
+
+  // Fetch initial table session data
+  useEffect(() => {
+    const fetchTableSession = async () => {
+      if (!selectedTable) {
+        setTotalSpent(0)
+        return
+      }
+
+      try {
+        const { data: sessions, error } = await supabase
+          .from('table_sessions')
+          .select('total_spent, status')
+          .eq('table_id', selectedTable.id)
+          .eq('status', 'active')
+          .order('start_time', { ascending: false })
+          .limit(1)
+
+        if (error) {
+          console.error('Error fetching table session:', error)
+          return
+        }
+
+        if (sessions && sessions.length > 0) {
+          setTotalSpent(sessions[0].total_spent || 0)
+        } else {
+          setTotalSpent(0)
+        }
+      } catch (error) {
+        setTotalSpent(0)
+      }
+    }
+
+    fetchTableSession()
   }, [selectedTable?.id])
 
   const handleOrderAction = async () => {
@@ -234,7 +301,7 @@ export function TableDetails({
     changeTableStatus(selectedTable.id, newStatus)
     setCurrentTableStatus(newStatus)
   }
-  
+
   return (
     <div className="w-100">
       <Card className="bg-transparent border-zinc-950">
@@ -256,6 +323,10 @@ export function TableDetails({
                     {selectedTable.waitTime}min
                   </Badge>
                 )}
+                  <Badge variant="outline" className="font-medium border-green-700 text-green-300 text-xs">
+                    <Currency className="h-2 w-2 lg:h-3 lg:w-3 mr-1" />
+                    ${totalSpent > 0 ? totalSpent.toFixed(2) : 0}
+                  </Badge>
               </div>
 
               <div className="grid grid-cols-2 gap-2 lg:gap-3">
