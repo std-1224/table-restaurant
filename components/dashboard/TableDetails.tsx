@@ -234,7 +234,7 @@ export function TableDetails({
     changeTableStatus(selectedTable.id, newStatus)
     setCurrentTableStatus(newStatus)
   }
-
+  
   return (
     <div className="w-100">
       <Card className="bg-transparent border-zinc-950">
@@ -260,7 +260,7 @@ export function TableDetails({
 
               <div className="grid grid-cols-2 gap-2 lg:gap-3">
                 <div className="p-2 lg:p-3 rounded-lg bg-transparent">
-                  <p className="text-xs text-gray-400">Comensales</p>
+                  <p className="text-xs text-gray-400">Invitadas Actuales</p>
                   <p className="text-sm sm:text-base font-bold text-gray-100">{selectedTable.diners || 0}</p>
                 </div>
                 <div className="p-2 lg:p-3 rounded-lg bg-transparent">
