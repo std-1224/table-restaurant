@@ -354,7 +354,7 @@ export default function RestaurantDashboard() {
 
         return updatedTables
       })
-    }, 60000)
+    }, 1000)
 
     return () => clearInterval(interval)
   }, [tipNotifications, soundEnabled, selectedTable?.id])

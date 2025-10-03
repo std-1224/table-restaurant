@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Clock, Currency } from "lucide-react"
-import { getTableOrdersForTable, OrderWithItems, updateTableStatus } from "@/lib/api/tables"
+import { getTableOrdersForTable, OrderItem, OrderWithItems, updateTableStatus } from "@/lib/api/tables"
 import { supabase, DatabaseTableStatus } from "@/lib/supabase"
 
 interface Table {
@@ -302,6 +302,32 @@ export function TableDetails({
     setCurrentTableStatus(newStatus)
   }
 
+  const getOrderStatusButtonColor = (status: OrderItem['status']) => {
+    // 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'paying' | 'expired' | 'suspended' | 'paid',
+    switch (status) {
+      case "pending":
+        return "bg-orange-600 hover:bg-orange-700"
+      case "preparing":
+        return "bg-blue-600 hover:bg-blue-700"
+      case "ready":
+        return "bg-green-600 hover:bg-green-700"
+      case "delivered":
+        return "bg-gray-600 hover:bg-gray-700"
+      case "cancelled":
+        return "bg-red-600 hover:bg-red-700"
+      case "paying":
+        return "bg-yellow-600 hover:bg-yellow-700"
+      case "paid":
+        return "bg-gray-600 hover:bg-gray-700"
+      case "expired":
+        return "bg-red-600 hover:bg-red-700"
+      case "suspended":
+        return "bg-red-600 hover:bg-red-700"
+      default:
+        return "bg-gray-600 hover:bg-gray-700"
+    }
+  }
+
   return (
     <div className="w-100">
       <Card className="bg-transparent border-zinc-950">
@@ -366,11 +392,12 @@ export function TableDetails({
                         </div>
                         <Button
                           size="sm"
-                          className={`${getButtonColor()} text-white ml-2 h-8 px-2 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
-                          onClick={handleOrderAction}
-                          disabled={isButtonDisabled()}
+                          className={`${getOrderStatusButtonColor(order.status)} text-white ml-2 h-8 px-2 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                          // className={`${getButtonColor()} text-white ml-2 h-8 px-2 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                          // onClick={handleOrderAction}
+                          // disabled={isButtonDisabled()}
                         >
-                          {getButtonText()}
+                          {order.status}
                         </Button>
                       </div>
 

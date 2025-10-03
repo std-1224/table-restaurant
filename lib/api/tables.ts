@@ -1,4 +1,4 @@
-import { supabase, DatabaseTableStatus, FrontendTable, mapDatabaseStatusToFrontend, mapDatabaseTableToFrontend} from '../supabase'
+import { supabase, DatabaseTableStatus, FrontendTable, mapDatabaseStatusToFrontend, mapDatabaseTableToFrontend } from '../supabase'
 
 // Default venue ID - in a real app, this would come from user authentication
 const DEFAULT_VENUE_ID = null;
@@ -21,17 +21,18 @@ export interface TableOrder {
 
 export interface OrderItem {
   id: string,
-  user_id : string
-  total_amount : number,
-  notes : string,
-  is_table_order : true,
-  table_number : string,
-  payment_method : string,
-  user_name : string,
-  qr_id : null,
-  table_id : string,
-  status: 'pending' | 'preparing' | 'ready' | 'delivered',
+  user_id: string
+  total_amount: number,
+  notes: string,
+  is_table_order: true,
+  table_number: string,
+  payment_method: string,
+  user_name: string,
+  qr_id: null,
+  table_id: string,
+  status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'paying' | 'expired' | 'suspended' | 'paid',
   created_at: string,
+  updated_at: string,
 }
 
 export interface OrderWithItems {
@@ -40,6 +41,7 @@ export interface OrderWithItems {
   order_id: string
   created_at: string
   order_items: OrderItem[]
+  status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'paying' | 'expired' | 'suspended' | 'paid',
 }
 
 export interface TableNotification {
@@ -365,7 +367,7 @@ export async function getTableOrdersForTable(tableId: string): Promise<OrderWith
       .from('table_orders')
       .select('*')
       .eq('table_id', tableId)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false });
 
     if (tableOrdersError) {
       console.error('Error fetching table orders:', tableOrdersError)
@@ -383,20 +385,29 @@ export async function getTableOrdersForTable(tableId: string): Promise<OrderWith
       const { data: orderItems, error: orderItemsError } = await supabase
         .from('orders')
         .select('*')
-        .eq('id', tableOrder.order_id)
+        .eq('id', tableOrder.order_id).maybeSingle()
 
       if (orderItemsError) {
-        console.error(`Error fetching order items for order ${tableOrder.order_id}:`, orderItemsError)
-        // Continue with other orders even if one fails
+        console.error('Error fetching order items:', orderItemsError)
+        throw orderItemsError
+      }
+
+      // If no order items found, skip this table order
+      if (!orderItems || orderItems.length === 0) {
+        console.warn(`No order items found for order ${tableOrder.order_id}`)
         continue
       }
+
+      // Get the first order item's status (assuming all items in an order have the same status)
+      const orderStatus: OrderWithItems['status'] = orderItems?.status;
 
       ordersWithItems.push({
         id: tableOrder.id,
         table_id: tableOrder.table_id,
         order_id: tableOrder.order_id,
         created_at: tableOrder.created_at,
-        order_items: orderItems || []
+        status: orderStatus,
+        order_items: orderItems as OrderItem[]
       })
     }
 
