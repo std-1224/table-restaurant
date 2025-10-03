@@ -327,36 +327,112 @@ export default function RestaurantDashboard() {
 
   const activeNotifications = notifications.filter((n) => !n.dismissed)
 
+  // Fetch real session start times from database and update wait times
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTables((prevTables) => {
-        const updatedTables = prevTables.map((table) => {
-          if (table.startTime && table.status !== "free") {
-            const waitTime = Math.floor((Date.now() - table.startTime.getTime()) / 60000)
+    const updateWaitTimes = async () => {
+      try {
+        // Get all active table sessions
+        const { data: sessions, error } = await supabase
+          .from('table_sessions')
+          .select('table_id, start_time')
+          .eq('status', 'active')
 
-            if (waitTime >= 20 && !tipNotifications[table.id]) {
-              setTipNotifications((prev) => ({ ...prev, [table.id]: true }))
-              // Sound notification would be triggered here if implemented
-            }
-
-            return { ...table, waitTime }
-          }
-          return table
-        })
-
-        // Update selected table if it exists to reflect wait time changes
-        if (selectedTable) {
-          const updatedSelectedTable = updatedTables.find(table => table.id === selectedTable.id)
-          if (updatedSelectedTable) {
-            setSelectedTable(updatedSelectedTable)
-          }
+        if (error) {
+          console.error('Error fetching table sessions:', error)
+          return
         }
 
-        return updatedTables
-      })
-    }, 1000)
+        if (!sessions || sessions.length === 0) {
+          // No active sessions, reset all wait times
+          setTables((prevTables) => {
+            const updatedTables = prevTables.map((table) => ({
+              ...table,
+              waitTime: 0,
+              startTime: undefined
+            }))
 
-    return () => clearInterval(interval)
+            // Update selected table if it exists
+            if (selectedTable) {
+              const updatedSelectedTable = updatedTables.find(table => table.id === selectedTable.id)
+              if (updatedSelectedTable) {
+                setSelectedTable(updatedSelectedTable)
+              }
+            }
+
+            return updatedTables
+          })
+          return
+        }
+
+        // Create a map of table_id to start_time
+        const sessionMap = sessions.reduce((acc, session) => {
+          acc[session.table_id] = new Date(session.start_time)
+          return acc
+        }, {} as { [key: string]: Date })
+
+        setTables((prevTables) => {
+          const updatedTables = prevTables.map((table) => {
+            const sessionStartTime = sessionMap[table.id]
+
+            if (sessionStartTime && table.status !== "free") {
+              const waitTime = Math.floor((Date.now() - sessionStartTime.getTime()) / 60000)
+
+              if (waitTime >= 20 && !tipNotifications[table.id]) {
+                setTipNotifications((prev) => ({ ...prev, [table.id]: true }))
+                // Sound notification would be triggered here if implemented
+              }
+
+              return { ...table, waitTime, startTime: sessionStartTime }
+            } else if (table.status === "free") {
+              // Reset wait time for free tables
+              return { ...table, waitTime: 0, startTime: undefined }
+            }
+
+            return table
+          })
+
+          // Update selected table if it exists to reflect wait time changes
+          if (selectedTable) {
+            const updatedSelectedTable = updatedTables.find(table => table.id === selectedTable.id)
+            if (updatedSelectedTable) {
+              setSelectedTable(updatedSelectedTable)
+            }
+          }
+
+          return updatedTables
+        })
+      } catch (error) {
+        console.error('Error updating wait times:', error)
+      }
+    }
+
+    // Update wait times immediately
+    updateWaitTimes()
+
+    // Set up interval to update wait times every minute
+    const interval = setInterval(updateWaitTimes, 60000)
+
+    // Set up real-time subscription for table sessions
+    const tableSessionsChannel = supabase
+      .channel('table_sessions_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'table_sessions',
+        },
+        () => {
+          // When table sessions change, update wait times immediately
+          updateWaitTimes()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      clearInterval(interval)
+      supabase.removeChannel(tableSessionsChannel)
+    }
   }, [tipNotifications, soundEnabled, selectedTable?.id])
 
   const dismissTipNotification = (tableId: string) => {
