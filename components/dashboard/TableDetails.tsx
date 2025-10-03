@@ -241,6 +241,7 @@ export function TableDetails({
   useEffect(() => {
     if (!selectedTable) return
 
+    // Listen to changes in table_orders table (for new orders)
     const tableOrdersChannel = supabase
       .channel(`table_orders_${selectedTable.id}`)
       .on(
@@ -249,12 +250,46 @@ export function TableDetails({
           event: "*",
           schema: "public",
           table: "table_orders",
+          filter: `table_id=eq.${selectedTable.id}`,
         },
         async () => {
           try {
             const orders = await getTableOrdersForTable(selectedTable.id)
             setRealTableOrders(orders)
           } catch (error) {
+            console.error('Error refreshing orders from table_orders changes:', error)
+          }
+        }
+      )
+      .subscribe()
+
+    // Listen to changes in orders table (for status updates)
+    const ordersChannel = supabase
+      .channel(`orders_${selectedTable.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+        },
+        async (payload) => {
+          try {
+            // Check if this order belongs to our table by checking if it exists in table_orders
+            const { data: tableOrder } = await supabase
+              .from('table_orders')
+              .select('id')
+              .eq('table_id', selectedTable.id)
+              .eq('order_id', payload.new.id)
+              .single()
+
+            if (tableOrder) {
+              // This order belongs to our table, refresh the orders
+              const orders = await getTableOrdersForTable(selectedTable.id)
+              setRealTableOrders(orders)
+            }
+          } catch (error) {
+            console.error('Error refreshing orders from orders changes:', error)
           }
         }
       )
@@ -262,6 +297,7 @@ export function TableDetails({
 
     return () => {
       supabase.removeChannel(tableOrdersChannel)
+      supabase.removeChannel(ordersChannel)
     }
   }, [selectedTable?.id])
 
