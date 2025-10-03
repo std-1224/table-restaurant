@@ -269,11 +269,11 @@ export function TableDetails({
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*", // Listen to all changes
           schema: "public",
           table: "orders",
         },
-        async (payload) => {
+        async (payload:any) => {
           try {
             // Check if this order belongs to our table by checking if it exists in table_orders
             const { data: tableOrder } = await supabase
