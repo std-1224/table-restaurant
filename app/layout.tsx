@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Space_Grotesk, DM_Sans } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/AuthContext"
+import { QueryProvider } from "@/components/providers/QueryProvider"
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -34,9 +35,11 @@ export default function RootLayout({
       <body
         className={`font-sans ${GeistSans.variable} ${GeistMono.variable} ${spaceGrotesk.variable} ${dmSans.variable}`}
       >
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   )

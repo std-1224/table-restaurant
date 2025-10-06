@@ -10,30 +10,13 @@ import {
   DollarSign,
   Home,
 } from "lucide-react"
-import { DatabaseTableStatus } from "@/lib/supabase"
-
-interface Table {
-  id: string
-  number: string
-  status: DatabaseTableStatus
-  orders: any[]
-  waitTime?: number
-  diners?: number
-  assignedWaiter?: string
-  startTime?: Date
-}
+import { DatabaseTableStatus, FrontendTable } from "@/lib/supabase"
+import { useRestaurantStore } from "@/lib/store"
 
 interface TablesGridProps {
-  tables: Table[]
-  tableFilter: string
-  setTableFilter: (filter: string) => void
-  tipNotifications: { [key: string]: boolean }
-  setSelectedTable: (table: Table) => void
+  tables: FrontendTable[]
   quickFreeTable: (tableId: string) => void
   onCreateTable: () => void
-  selectedTable: Table | null,
-  isLoadingOrders: boolean,
-  setIsLoadingOrders: (loading: boolean) => void
 }
 
 const statusColors = {
@@ -54,16 +37,19 @@ const timeColors = {
 
 export function TablesGrid({
   tables,
-  tableFilter,
-  setTableFilter,
-  tipNotifications,
-  setSelectedTable,
   quickFreeTable,
   onCreateTable,
-  selectedTable,
-  isLoadingOrders,
-  setIsLoadingOrders,
 }: TablesGridProps) {
+  // Get state from Zustand store
+  const {
+    tableFilter,
+    setTableFilter,
+    tipNotifications,
+    selectedTable,
+    setSelectedTable,
+    isLoadingOrders,
+    setIsLoadingOrders,
+  } = useRestaurantStore()
   const getTimeBasedColor = (waitTime?: number) => {
     if (!waitTime) return ""
     if (waitTime < 10) return timeColors.fast
@@ -109,10 +95,8 @@ export function TablesGrid({
     }
   }
 
-  const handleTableClick = (table: Table) => {
+  const handleTableClick = (table: FrontendTable) => {
     if (isLoadingOrders) return
-    // Reset loading state before selecting new table
-    setIsLoadingOrders(false)
     setSelectedTable(table)
   }
 

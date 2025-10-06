@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Clock, Currency } from "lucide-react"
 import { getTableOrdersForTable, OrderItem, OrderWithItems, updateTableStatus } from "@/lib/api/tables"
 import { supabase, DatabaseTableStatus } from "@/lib/supabase"
+import { useRestaurantStore } from "@/lib/store"
 
 interface Table {
   id: string
@@ -20,11 +21,8 @@ interface Table {
 }
 
 interface TableDetailsProps {
-  selectedTable: Table | null
   changeTableStatus: (tableId: string, newStatus: DatabaseTableStatus) => void
   scanQRCode: (tableId: string) => void
-  isLoadingOrders: boolean,
-  setIsLoadingOrders: (loading: boolean) => void
 }
 
 const statusColors = {
@@ -38,15 +36,14 @@ const statusColors = {
 } as const
 
 export function TableDetails({
-  selectedTable,
   changeTableStatus,
   scanQRCode,
-  isLoadingOrders,
-  setIsLoadingOrders,
 }: TableDetailsProps) {
   const [realTableOrders, setRealTableOrders] = useState<OrderWithItems[]>([])
   const [currentTableStatus, setCurrentTableStatus] = useState<DatabaseTableStatus | null>(null)
   const [totalSpent, setTotalSpent] = useState<number | 0>(0)
+  const {selectedTable, setSelectedTable , setIsLoadingOrders , isLoadingOrders} = useRestaurantStore();
+
   console.log("isLoadingOrders: ", isLoadingOrders, selectedTable?.id)
   useEffect(() => {
     if (selectedTable) {

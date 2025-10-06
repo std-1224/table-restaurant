@@ -105,13 +105,6 @@ export function NotificationsSection({
               </div>
             </div>
           ))}
-          {activeNotifications.length > 3 && (
-            <div className="text-center">
-              <Badge variant="outline" className="text-xs border-gray-600 text-gray-400">
-                +{activeNotifications.length - 3} notificaciones más
-              </Badge>
-            </div>
-          )}
         </div>
       )}
 
