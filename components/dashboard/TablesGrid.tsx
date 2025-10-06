@@ -32,7 +32,8 @@ interface TablesGridProps {
   quickFreeTable: (tableId: string) => void
   onCreateTable: () => void
   selectedTable: Table | null,
-  isLoadingOrders?: boolean
+  isLoadingOrders: boolean,
+  setIsLoadingOrders: (loading: boolean) => void
 }
 
 const statusColors = {
@@ -60,7 +61,8 @@ export function TablesGrid({
   quickFreeTable,
   onCreateTable,
   selectedTable,
-  isLoadingOrders = false,
+  isLoadingOrders,
+  setIsLoadingOrders,
 }: TablesGridProps) {
   const getTimeBasedColor = (waitTime?: number) => {
     if (!waitTime) return ""
@@ -107,6 +109,11 @@ export function TablesGrid({
     }
   }
 
+  const handleTableClick = (table: Table) => {
+    if (isLoadingOrders) return
+    setSelectedTable(table)
+  }
+
   return (
     <Card className="border-zinc-950 bg-transparent">
       <CardHeader className="pb-3 lg:pb-4">
@@ -126,11 +133,7 @@ export function TablesGrid({
                 ${isLoadingOrders ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}
 
               `}
-                onClick={() => {
-                  if (!isLoadingOrders) {
-                    setSelectedTable(table)
-                  }
-                }}
+                onClick={() => handleTableClick(table)}
               >
 
                 {tipNotifications[table.id] && (

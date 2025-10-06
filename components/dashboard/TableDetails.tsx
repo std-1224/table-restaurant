@@ -23,7 +23,8 @@ interface TableDetailsProps {
   selectedTable: Table | null
   changeTableStatus: (tableId: string, newStatus: DatabaseTableStatus) => void
   scanQRCode: (tableId: string) => void
-  onLoadingChange?: (isLoading: boolean) => void
+  isLoadingOrders: boolean,
+  setIsLoadingOrders: (loading: boolean) => void
 }
 
 const statusColors = {
@@ -40,12 +41,13 @@ export function TableDetails({
   selectedTable,
   changeTableStatus,
   scanQRCode,
-  onLoadingChange,
+  isLoadingOrders,
+  setIsLoadingOrders,
 }: TableDetailsProps) {
   const [realTableOrders, setRealTableOrders] = useState<OrderWithItems[]>([])
-  const [loadingOrders, setLoadingOrders] = useState(false)
   const [currentTableStatus, setCurrentTableStatus] = useState<DatabaseTableStatus | null>(null)
   const [totalSpent, setTotalSpent] = useState<number | 0>(0)
+  console.log("isLoadingOrders: ", isLoadingOrders, selectedTable?.id)
   useEffect(() => {
     if (selectedTable) {
       setCurrentTableStatus(selectedTable.status)
@@ -214,24 +216,23 @@ export function TableDetails({
         return "bg-blue-600 hover:bg-blue-700"
     }
   }
-
   useEffect(() => {
     const fetchTableOrders = async () => {
       if (!selectedTable) {
         setRealTableOrders([])
+        setIsLoadingOrders(false)
         return
       }
 
       try {
-        setLoadingOrders(true)
-        onLoadingChange?.(true)
+        setIsLoadingOrders(true)
         const orders = await getTableOrdersForTable(selectedTable.id)
         setRealTableOrders(orders)
       } catch (error) {
         setRealTableOrders([])
+        setIsLoadingOrders(false)
       } finally {
-        setLoadingOrders(false)
-        onLoadingChange?.(false)
+        setIsLoadingOrders(false)
       }
     }
 
@@ -254,10 +255,15 @@ export function TableDetails({
         },
         async () => {
           try {
+            setIsLoadingOrders(true)
             const orders = await getTableOrdersForTable(selectedTable.id)
             setRealTableOrders(orders)
           } catch (error) {
             console.error('Error refreshing orders from table_orders changes:', error)
+            setRealTableOrders([])
+            setIsLoadingOrders(false)
+          } finally {
+            setIsLoadingOrders(false)
           }
         }
       )
@@ -406,7 +412,7 @@ export function TableDetails({
 
               <div className="space-y-2 lg:space-y-3">
                 <h4 className="font-medium text-gray-100 text-xs sm:text-sm">Pedidos</h4>
-                {loadingOrders ? (
+                {isLoadingOrders ? (
                   <p className="text-gray-500 text-center py-4 text-sm">Cargando pedidos...</p>
                 ) : realTableOrders.length > 0 ? (
                   realTableOrders.map((order) => (

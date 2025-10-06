@@ -58,7 +58,7 @@ interface Notification {
 
 export default function RestaurantDashboard() {
   const [tables, setTables] = useState<Table[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [barOrders, setBarOrders] = useState<BarOrder[]>([
@@ -92,7 +92,7 @@ export default function RestaurantDashboard() {
   ])
 
   const [selectedTable, setSelectedTable] = useState<Table | null>(null)
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false)
+
   const [currentView, setCurrentView] = useState<"comandera" | "barra" | "supervisor">("comandera")
   const [tableFilter, setTableFilter] = useState<string>("all")
   const [barFilter, setBarFilter] = useState<string>("all")
@@ -103,22 +103,22 @@ export default function RestaurantDashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [notificationCounter, setNotificationCounter] = useState(1)
   const { profile } = useAuth()
+  
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false)
 
-  // Helper function to update tables and sync selected table
-  const updateTablesAndSelectedTable = (newTables: Table[]) => {
-    setTables(newTables)
-
+  useEffect(() => {
     // Update selected table if it exists to reflect real-time changes
     if (selectedTable) {
-      const updatedSelectedTable = newTables.find(table => table.id === selectedTable.id)
+      const updatedSelectedTable = tables.find(table => table.id === selectedTable.id)
       if (updatedSelectedTable) {
         setSelectedTable(updatedSelectedTable)
       } else {
         // If selected table no longer exists, clear selection
+        setLoading(false)
         setSelectedTable(null)
       }
     }
-  }
+  }, [tables, selectedTable]) // Remove selectedTable from dependencies to prevent infinite loop
 
   // Initial data loading effect
   useEffect(() => {
@@ -127,7 +127,7 @@ export default function RestaurantDashboard() {
         setLoading(true)
         setError(null)
         const fetchedTables = await fetchTables()
-        updateTablesAndSelectedTable(fetchedTables)
+        setTables(fetchedTables)
       } catch (err) {
         console.error('Failed to load initial data:', err)
         setError(err instanceof Error ? err.message : 'Failed to load initial data')
@@ -160,7 +160,7 @@ export default function RestaurantDashboard() {
 
             // Don't show loading spinner for real-time updates
             const fetchedTables = await fetchTables()
-            updateTablesAndSelectedTable(fetchedTables)
+            setTables(fetchedTables)
           } catch (err) {
             console.error('Failed to fetch real-time data:', err)
             setError(err instanceof Error ? err.message : 'Failed to fetch real-time data')
@@ -653,6 +653,7 @@ export default function RestaurantDashboard() {
                     quickFreeTable={quickFreeTable}
                     onCreateTable={() => setIsCreateTableModalOpen(true)}
                     isLoadingOrders={isLoadingOrders}
+                    setIsLoadingOrders={setIsLoadingOrders}
                   />
                 )}
               </div>
@@ -661,7 +662,8 @@ export default function RestaurantDashboard() {
                   selectedTable={selectedTable}
                   changeTableStatus={changeTableStatus}
                   scanQRCode={scanQRCode}
-                  onLoadingChange={setIsLoadingOrders}
+                  isLoadingOrders={isLoadingOrders}
+                  setIsLoadingOrders={setIsLoadingOrders}
                 />
               </div>
             </div>
