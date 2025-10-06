@@ -114,11 +114,10 @@ export default function RestaurantDashboard() {
         setSelectedTable(updatedSelectedTable)
       } else {
         // If selected table no longer exists, clear selection
-        setLoading(false)
         setSelectedTable(null)
       }
     }
-  }, [tables, selectedTable]) // Remove selectedTable from dependencies to prevent infinite loop
+  }, [tables])
 
   // Initial data loading effect
   useEffect(() => {

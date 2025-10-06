@@ -111,6 +111,8 @@ export function TablesGrid({
 
   const handleTableClick = (table: Table) => {
     if (isLoadingOrders) return
+    // Reset loading state before selecting new table
+    setIsLoadingOrders(false)
     setSelectedTable(table)
   }
 

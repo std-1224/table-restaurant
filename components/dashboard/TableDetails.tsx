@@ -237,7 +237,7 @@ export function TableDetails({
     }
 
     fetchTableOrders()
-  }, [selectedTable?.id])
+  }, [selectedTable])
 
   useEffect(() => {
     if (!selectedTable) return
@@ -305,7 +305,7 @@ export function TableDetails({
       supabase.removeChannel(tableOrdersChannel)
       supabase.removeChannel(ordersChannel)
     }
-  }, [selectedTable?.id])
+  }, [selectedTable])
 
   const getStatusColor = (status: DatabaseTableStatus) => {
     return statusColors[status] || "bg-gray-600 text-white border-gray-500"
