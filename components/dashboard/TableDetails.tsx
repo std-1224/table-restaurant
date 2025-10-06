@@ -8,7 +8,7 @@ import { Clock, Currency } from "lucide-react"
 import { OrderItem, updateTableStatus } from "@/lib/api/tables"
 import { DatabaseTableStatus } from "@/lib/supabase"
 import { useRestaurantStore } from "@/lib/store"
-import { useTableDetailsQuery } from "@/hooks/useOrdersQuery"
+import { useTableDetailsQuery, useSelectedTableSync } from "@/hooks/useOrdersQuery"
 
 interface Table {
   id: string
@@ -43,6 +43,9 @@ export function TableDetails({
   const [currentTableStatus, setCurrentTableStatus] = useState<DatabaseTableStatus | null>(null)
   const { selectedTable } = useRestaurantStore()
 
+  // Sync selected table with latest data from tables query
+  useSelectedTableSync()
+
   // Use the new React Query hook for all table details
   const {
     orders,
@@ -58,7 +61,7 @@ export function TableDetails({
     } else {
       setCurrentTableStatus(null)
     }
-  }, [selectedTable])
+  }, [selectedTable?.status, selectedTable?.id]) // React to status changes specifically
 
   console.log("isloadingorders: ", isLoading)
 
@@ -162,10 +165,23 @@ export function TableDetails({
     waiting_order: "earning",
   };
 
-  const handleStatusChange = (newStatus: DatabaseTableStatus) => {
+  const handleStatusChange = async (newStatus: DatabaseTableStatus) => {
     if (!selectedTable) return
-    changeTableStatus(selectedTable.id, newStatus)
-    setCurrentTableStatus(newStatus)
+
+    try {
+      // Update the table status in the database
+      await updateTableStatus(selectedTable.id, newStatus)
+
+      // Update the parent component's state
+      changeTableStatus(selectedTable.id, newStatus)
+
+      // Update local state immediately for UI responsiveness
+      setCurrentTableStatus(newStatus)
+
+      console.log(`Table ${selectedTable.number} status changed to ${newStatus}`)
+    } catch (error) {
+      console.error('Error updating table status:', error)
+    }
   }
 
   const getOrderStatusButtonColor = (status: OrderItem['status']) => {

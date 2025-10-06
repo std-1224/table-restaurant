@@ -1,8 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { getTableOrdersForTable, OrderWithItems } from '@/lib/api/tables'
 import { queryKeys } from '@/lib/react-query'
 import { useTableSessionQuery } from './useTableSessionQuery'
 import { FrontendTable } from '@/lib/supabase'
+import { useRestaurantStore } from '@/lib/store'
+import { useTablesQuery } from './useTablesQuery'
 
 // Enhanced hook to fetch orders for a specific table with optimized caching
 export function useTableOrdersQuery(tableId: string | null) {
@@ -114,4 +117,35 @@ export function usePrefetchTableDetails() {
   }
 
   return { prefetchTableDetails }
+}
+
+// Hook to sync selected table with latest data from tables query
+export function useSelectedTableSync() {
+  const { selectedTable, setSelectedTable } = useRestaurantStore()
+  const { data: tables } = useTablesQuery()
+
+  useEffect(() => {
+    if (!selectedTable || !tables) return
+
+    // Find the updated table data
+    const updatedTable = tables.find(table => table.id === selectedTable.id)
+
+    if (updatedTable) {
+      // Check if the table data has changed
+      const hasChanged =
+        updatedTable.status !== selectedTable.status ||
+        updatedTable.diners !== selectedTable.diners ||
+        updatedTable.waitTime !== selectedTable.waitTime ||
+        updatedTable.assignedWaiter !== selectedTable.assignedWaiter
+
+      if (hasChanged) {
+        console.log('Syncing selected table with updated data:', updatedTable)
+        setSelectedTable(updatedTable)
+      }
+    } else {
+      // Table no longer exists, clear selection
+      console.log('Selected table no longer exists, clearing selection')
+      setSelectedTable(null)
+    }
+  }, [tables, selectedTable, setSelectedTable])
 }
