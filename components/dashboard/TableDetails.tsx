@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Clock, Currency } from "lucide-react"
-import { getTableOrdersForTable, OrderItem, OrderWithItems, updateTableStatus } from "@/lib/api/tables"
-import { supabase, DatabaseTableStatus } from "@/lib/supabase"
+import { OrderItem, updateTableStatus } from "@/lib/api/tables"
+import { DatabaseTableStatus } from "@/lib/supabase"
 import { useRestaurantStore } from "@/lib/store"
+import { useTableDetailsQuery } from "@/hooks/useOrdersQuery"
 
 interface Table {
   id: string
@@ -39,12 +40,18 @@ export function TableDetails({
   changeTableStatus,
   scanQRCode,
 }: TableDetailsProps) {
-  const [realTableOrders, setRealTableOrders] = useState<OrderWithItems[]>([])
   const [currentTableStatus, setCurrentTableStatus] = useState<DatabaseTableStatus | null>(null)
-  const [totalSpent, setTotalSpent] = useState<number | 0>(0)
-  const {selectedTable, setSelectedTable , setIsLoadingOrders , isLoadingOrders} = useRestaurantStore();
+  const { selectedTable } = useRestaurantStore()
 
-  console.log("isLoadingOrders: ", isLoadingOrders, selectedTable?.id)
+  // Use the new React Query hook for all table details
+  const {
+    orders,
+    totalSpent,
+    isLoading,
+    isFetching,
+    isError
+  } = useTableDetailsQuery(selectedTable)
+  // Update current table status when selected table changes
   useEffect(() => {
     if (selectedTable) {
       setCurrentTableStatus(selectedTable.status)
@@ -53,98 +60,7 @@ export function TableDetails({
     }
   }, [selectedTable])
 
-  useEffect(() => {
-    if (!selectedTable) return
-
-    const tableStatusChannel = supabase
-      .channel(`table_status_${selectedTable.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "tables",
-          filter: `id=eq.${selectedTable.id}`,
-        },
-        (payload: any) => {
-          if (payload.new?.status) {
-            setCurrentTableStatus(payload.new.status)
-          }
-        }
-      )
-      .subscribe()
-
-    const tableSessionChannel = supabase
-      .channel(`table_sessions_${selectedTable.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "table_sessions",
-          filter: `table_id=eq.${selectedTable.id}`,
-        },
-        (payload: any) => {
-          // Handle different event types
-          switch (payload.eventType) {
-            case 'INSERT':
-              if (payload.new?.total_spent !== undefined) {
-                setTotalSpent(payload.new.total_spent)
-              }
-              break
-            case 'UPDATE':
-              if (payload.new?.total_spent !== undefined) {
-                setTotalSpent(payload.new.total_spent)
-              }
-              break
-            case 'DELETE':
-              setTotalSpent(0)
-              break
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(tableSessionChannel)
-      supabase.removeChannel(tableStatusChannel)
-    }
-  }, [selectedTable?.id])
-
-  // Fetch initial table session data
-  useEffect(() => {
-    const fetchTableSession = async () => {
-      if (!selectedTable) {
-        setTotalSpent(0)
-        return
-      }
-
-      try {
-        const { data: sessions, error } = await supabase
-          .from('table_sessions')
-          .select('total_spent, status')
-          .eq('table_id', selectedTable.id)
-          .eq('status', 'active')
-          .order('start_time', { ascending: false })
-          .limit(1)
-
-        if (error) {
-          console.error('Error fetching table session:', error)
-          return
-        }
-
-        if (sessions && sessions.length > 0) {
-          setTotalSpent(sessions[0].total_spent || 0)
-        } else {
-          setTotalSpent(0)
-        }
-      } catch (error) {
-        setTotalSpent(0)
-      }
-    }
-
-    fetchTableSession()
-  }, [selectedTable?.id])
+  console.log("isloadingorders: ", isLoading)
 
   const handleOrderAction = async () => {
     if (!selectedTable || !currentTableStatus) return
@@ -213,96 +129,7 @@ export function TableDetails({
         return "bg-blue-600 hover:bg-blue-700"
     }
   }
-  useEffect(() => {
-    const fetchTableOrders = async () => {
-      if (!selectedTable) {
-        setRealTableOrders([])
-        setIsLoadingOrders(false)
-        return
-      }
 
-      try {
-        setIsLoadingOrders(true)
-        const orders = await getTableOrdersForTable(selectedTable.id)
-        setRealTableOrders(orders)
-      } catch (error) {
-        setRealTableOrders([])
-        setIsLoadingOrders(false)
-      } finally {
-        setIsLoadingOrders(false)
-      }
-    }
-
-    fetchTableOrders()
-  }, [selectedTable])
-
-  useEffect(() => {
-    if (!selectedTable) return
-
-    // Listen to changes in table_orders table (for new orders)
-    const tableOrdersChannel = supabase
-      .channel(`table_orders_${selectedTable.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "table_orders",
-          filter: `table_id=eq.${selectedTable.id}`,
-        },
-        async () => {
-          try {
-            setIsLoadingOrders(true)
-            const orders = await getTableOrdersForTable(selectedTable.id)
-            setRealTableOrders(orders)
-          } catch (error) {
-            console.error('Error refreshing orders from table_orders changes:', error)
-            setRealTableOrders([])
-            setIsLoadingOrders(false)
-          } finally {
-            setIsLoadingOrders(false)
-          }
-        }
-      )
-      .subscribe()
-
-    // Listen to changes in orders table (for status updates)
-    const ordersChannel = supabase
-      .channel(`orders_${selectedTable.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*", // Listen to all changes
-          schema: "public",
-          table: "orders",
-        },
-        async (payload:any) => {
-          try {
-            // Check if this order belongs to our table by checking if it exists in table_orders
-            const { data: tableOrder } = await supabase
-              .from('table_orders')
-              .select('id')
-              .eq('table_id', selectedTable.id)
-              .eq('order_id', payload.new.id)
-              .single()
-
-            if (tableOrder) {
-              // This order belongs to our table, refresh the orders
-              const orders = await getTableOrdersForTable(selectedTable.id)
-              setRealTableOrders(orders)
-            }
-          } catch (error) {
-            console.error('Error refreshing orders from orders changes:', error)
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(tableOrdersChannel)
-      supabase.removeChannel(ordersChannel)
-    }
-  }, [selectedTable])
 
   const getStatusColor = (status: DatabaseTableStatus) => {
     return statusColors[status] || "bg-gray-600 text-white border-gray-500"
@@ -409,10 +236,12 @@ export function TableDetails({
 
               <div className="space-y-2 lg:space-y-3">
                 <h4 className="font-medium text-gray-100 text-xs sm:text-sm">Pedidos</h4>
-                {isLoadingOrders ? (
+                {isLoading ? (
                   <p className="text-gray-500 text-center py-4 text-sm">Cargando pedidos...</p>
-                ) : realTableOrders.length > 0 ? (
-                  realTableOrders.map((order) => (
+                ) : isError ? (
+                  <p className="text-red-500 text-center py-4 text-sm">Error al cargar pedidos</p>
+                ) : orders.length > 0 ? (
+                  orders.map((order) => (
                     <div
                       key={order.id}
                       className="border border-gray-700 rounded-lg bg-gray-800 p-2 lg:p-3 space-y-2"

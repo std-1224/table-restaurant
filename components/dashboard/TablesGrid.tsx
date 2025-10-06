@@ -11,7 +11,8 @@ import {
   Home,
 } from "lucide-react"
 import { DatabaseTableStatus, FrontendTable } from "@/lib/supabase"
-import { useRestaurantStore } from "@/lib/store"
+import { useRestaurantStore, useSelectedTableId } from "@/lib/store"
+import { usePrefetchTableDetails } from "@/hooks/useOrdersQuery"
 
 interface TablesGridProps {
   tables: FrontendTable[]
@@ -47,9 +48,10 @@ export function TablesGrid({
     tipNotifications,
     selectedTable,
     setSelectedTable,
-    isLoadingOrders,
-    setIsLoadingOrders,
   } = useRestaurantStore()
+
+  // Get prefetch function for better UX
+  const { prefetchTableDetails } = usePrefetchTableDetails()
   const getTimeBasedColor = (waitTime?: number) => {
     if (!waitTime) return ""
     if (waitTime < 10) return timeColors.fast
@@ -96,8 +98,12 @@ export function TablesGrid({
   }
 
   const handleTableClick = (table: FrontendTable) => {
-    if (isLoadingOrders) return
     setSelectedTable(table)
+  }
+
+  const handleTableHover = (table: FrontendTable) => {
+    // Prefetch table details on hover for better UX
+    prefetchTableDetails(table.id)
   }
 
   return (
@@ -116,10 +122,11 @@ export function TablesGrid({
                 ${getTimeBasedColor(table.waitTime)}
                 ${tipNotifications[table.id] ? "ring-2 ring-red-400" : ""}
                 ${table.id === selectedTable?.id ? "ring-4 ring-green-500" : ""}
-                ${isLoadingOrders ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}
+                hover:scale-105 cursor-pointer
 
               `}
                 onClick={() => handleTableClick(table)}
+                onMouseEnter={() => handleTableHover(table)}
               >
 
                 {tipNotifications[table.id] && (

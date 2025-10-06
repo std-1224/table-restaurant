@@ -29,20 +29,18 @@ interface UIState {
   currentView: 'comandera' | 'barra' | 'supervisor'
   tableFilter: string
   barFilter: string
-  
+
   // Selected table
   selectedTable: Table | null
-  
+  selectedTableId: string | null // For better performance and React Query integration
+
   // Modal states
   isCreateTableModalOpen: boolean
-  
+
   // Notification states
   soundEnabled: boolean
   tipNotifications: { [key: string]: boolean }
-  
-  // Loading states
-  isLoadingOrders: boolean
-  
+
   // Error states
   error: string | null
 }
@@ -53,25 +51,23 @@ interface UIActions {
   setCurrentView: (view: 'comandera' | 'barra' | 'supervisor') => void
   setTableFilter: (filter: string) => void
   setBarFilter: (filter: string) => void
-  
+
   // Selected table actions
   setSelectedTable: (table: Table | null) => void
-  
+  setSelectedTableId: (tableId: string | null) => void
+
   // Modal actions
   setIsCreateTableModalOpen: (open: boolean) => void
-  
+
   // Notification actions
   setSoundEnabled: (enabled: boolean) => void
   setTipNotification: (tableId: string, enabled: boolean) => void
   dismissTipNotification: (tableId: string) => void
-  
-  // Loading actions
-  setIsLoadingOrders: (loading: boolean) => void
-  
+
   // Error actions
   setError: (error: string | null) => void
   clearError: () => void
-  
+
   // Reset actions
   reset: () => void
 }
@@ -85,10 +81,10 @@ const initialState: UIState = {
   tableFilter: 'all',
   barFilter: 'all',
   selectedTable: null,
+  selectedTableId: null,
   isCreateTableModalOpen: false,
   soundEnabled: true,
   tipNotifications: {},
-  isLoadingOrders: false,
   error: null,
 }
 
@@ -105,24 +101,25 @@ export const useRestaurantStore = create<RestaurantStore>()(
         setBarFilter: (filter) => set({ barFilter: filter }, false, 'setBarFilter'),
         
         // Selected table actions
-        setSelectedTable: (table) => set({ selectedTable: table }, false, 'setSelectedTable'),
-        
+        setSelectedTable: (table) => set({
+          selectedTable: table,
+          selectedTableId: table?.id || null
+        }, false, 'setSelectedTable'),
+        setSelectedTableId: (tableId) => set({ selectedTableId: tableId }, false, 'setSelectedTableId'),
+
         // Modal actions
         setIsCreateTableModalOpen: (open) => set({ isCreateTableModalOpen: open }, false, 'setIsCreateTableModalOpen'),
-        
+
         // Notification actions
         setSoundEnabled: (enabled) => set({ soundEnabled: enabled }, false, 'setSoundEnabled'),
-        setTipNotification: (tableId, enabled) => 
+        setTipNotification: (tableId, enabled) =>
           set((state) => ({
             tipNotifications: { ...state.tipNotifications, [tableId]: enabled }
           }), false, 'setTipNotification'),
-        dismissTipNotification: (tableId) => 
+        dismissTipNotification: (tableId) =>
           set((state) => ({
             tipNotifications: { ...state.tipNotifications, [tableId]: false }
           }), false, 'dismissTipNotification'),
-        
-        // Loading actions
-        setIsLoadingOrders: (loading) => set({ isLoadingOrders: loading }, false, 'setIsLoadingOrders'),
         
         // Error actions
         setError: (error) => set({ error }, false, 'setError'),
@@ -151,10 +148,10 @@ export const useRestaurantStore = create<RestaurantStore>()(
 // Selectors for better performance
 export const useCurrentView = () => useRestaurantStore((state) => state.currentView)
 export const useSelectedTable = () => useRestaurantStore((state) => state.selectedTable)
+export const useSelectedTableId = () => useRestaurantStore((state) => state.selectedTableId)
 export const useTableFilter = () => useRestaurantStore((state) => state.tableFilter)
 export const useBarFilter = () => useRestaurantStore((state) => state.barFilter)
 export const useSoundEnabled = () => useRestaurantStore((state) => state.soundEnabled)
 export const useTipNotifications = () => useRestaurantStore((state) => state.tipNotifications)
-export const useIsLoadingOrders = () => useRestaurantStore((state) => state.isLoadingOrders)
 export const useError = () => useRestaurantStore((state) => state.error)
 export const useIsCreateTableModalOpen = () => useRestaurantStore((state) => state.isCreateTableModalOpen)
