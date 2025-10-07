@@ -6,31 +6,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/contexts/AuthContext"
 import { Shield, ArrowLeft, Mail, Phone } from "lucide-react"
 
 export default function RoleAccessPage() {
-  const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+  const { user, signOut, loading: authLoading } = useAuth()
 
   useEffect(() => {
-    const getUser = async () => {
+    const getProfile = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (!session) {
-          router.push('/auth')
+        // Wait for auth context to finish loading
+        if (authLoading) {
           return
         }
 
-        setUser(session.user)
+        if (!user) {
+          router.push('/auth')
+          return
+        }
 
         // Get user profile
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', session.user.id)
+          .eq('id', user.id)
           .single()
 
         if (error) {
@@ -39,19 +41,18 @@ export default function RoleAccessPage() {
           setProfile(profile)
         }
       } catch (error) {
-        console.error('Error getting user:', error)
+        console.error('Error getting profile:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    getUser()
-  }, [router])
+    getProfile()
+  }, [user, router, authLoading])
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut()
-      router.push('/auth')
+      await signOut()
     } catch (error) {
       console.error('Error signing out:', error)
     }
@@ -62,7 +63,7 @@ export default function RoleAccessPage() {
     window.location.href = 'mailto:support@restaurant.com?subject=Access Request&body=Hello, I would like to request access to the restaurant dashboard. My account details are below:'
   }
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-white">Loading...</div>
