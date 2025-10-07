@@ -251,59 +251,69 @@ export function TableDetails({
               </div>
 
               <div className="space-y-2 lg:space-y-3">
-                <h4 className="font-medium text-gray-100 text-xs sm:text-sm">Pedidos</h4>
-                {isLoading ? (
-                  <p className="text-gray-500 text-center py-4 text-sm">Cargando pedidos...</p>
-                ) : isError ? (
-                  <p className="text-red-500 text-center py-4 text-sm">Error al cargar pedidos</p>
-                ) : orders.length > 0 ? (
-                  orders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="border border-gray-700 rounded-lg bg-gray-800 p-2 lg:p-3 space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-100 text-xs">Pedido #{order.order_id}</p>
-                          <p className="text-gray-400 text-xs">
-                            {new Date(order.created_at).toLocaleString('es-ES', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          className={`${getOrderStatusButtonColor(order.status)} text-white ml-2 h-8 px-2 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
-                          // className={`${getButtonColor()} text-white ml-2 h-8 px-2 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
-                          // onClick={handleOrderAction}
-                          // disabled={isButtonDisabled()}
-                        >
-                          {order.status}
-                        </Button>
-                      </div>
-
-                      {order.order_items && order.order_items.length > 0 && order.order_items.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between text-xs">
-                          <Badge
-                            className={`text-xs ${item.status === 'pending' ? 'bg-orange-500 text-white' :
-                              item.status === 'preparing' ? 'bg-blue-500 text-white' :
-                                item.status === 'ready' ? 'bg-yellow-500 text-black' :
-                                  'bg-green-500 text-white'
-                              }`}
-                          >
-                            {statusMap[item.status] || ""}
-                          </Badge>
-                          <span className="text-gray-400">${item?.total_amount || 0}</span>
-                        </div>
-                      ))}
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-gray-100 text-xs sm:text-sm">Pedidos</h4>
+                  {orders.length > 3 && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <span>{orders.length} pedidos</span>
+                      <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse"></div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-center py-4 text-sm">No hay pedidos</p>
-                )}
+                  )}
+                </div>
+                <div className="max-h-[calc(100vh-280px)] overflow-y-auto orders-scrollbar smooth-scroll pr-2 space-y-2 bg-gray-900/30 border border-gray-700/50 rounded-lg p-3 relative">
+                  {isLoading ? (
+                    <p className="text-gray-500 text-center py-4 text-sm">Cargando pedidos...</p>
+                  ) : isError ? (
+                    <p className="text-red-500 text-center py-4 text-sm">Error al cargar pedidos</p>
+                  ) : orders.length > 0 ? (
+                    orders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="border border-gray-700 rounded-lg bg-gray-800 p-2 lg:p-3 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-100 text-xs">Pedido #{order.order_id}</p>
+                            <p className="text-gray-400 text-xs">
+                              {new Date(order.created_at).toLocaleString('es-ES', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            className={`${getOrderStatusButtonColor(order.status)} text-white ml-2 h-8 px-2 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                            // className={`${getButtonColor()} text-white ml-2 h-8 px-2 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                            // onClick={handleOrderAction}
+                            // disabled={isButtonDisabled()}
+                          >
+                            {order.status}
+                          </Button>
+                        </div>
+
+                        {order.order_items && order.order_items.length > 0 && order.order_items.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between text-xs">
+                            <Badge
+                              className={`text-xs ${item.status === 'pending' ? 'bg-orange-500 text-white' :
+                                item.status === 'preparing' ? 'bg-blue-500 text-white' :
+                                  item.status === 'ready' ? 'bg-yellow-500 text-black' :
+                                    'bg-green-500 text-white'
+                                }`}
+                            >
+                              {statusMap[item.status] || ""}
+                            </Badge>
+                            <span className="text-gray-400">${item?.total_amount || 0}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 text-center py-4 text-sm">No hay pedidos</p>
+                  )}
+                </div>
               </div>
 
               {/* <div className="space-y-2 lg:space-y-3">
