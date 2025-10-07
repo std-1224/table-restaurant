@@ -211,7 +211,7 @@ export function TableDetails({
   }
 
   return (
-    <div className="w-100">
+    <div className="xl:w-100 w-full">
       <Card className="bg-transparent border-zinc-950">
         <CardHeader className="pb-3 lg:pb-4">
           <CardTitle className="text-base sm:text-lg text-gray-100">
