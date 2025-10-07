@@ -1,5 +1,43 @@
 import { QueryClient } from '@tanstack/react-query'
 
+// Helper function to check if error is authentication related
+const isAuthError = (error: any): boolean => {
+  // Check for Supabase auth errors
+  if (error?.message?.includes('JWT expired') ||
+      error?.message?.includes('Invalid JWT') ||
+      error?.message?.includes('session_not_found') ||
+      error?.message?.includes('refresh_token_not_found')) {
+    return true
+  }
+
+  // Check for HTTP auth errors
+  if (error?.status === 401 || error?.status === 403) {
+    return true
+  }
+
+  // Check for Supabase specific error codes
+  if (error?.code === 'PGRST301' || error?.code === 'PGRST302') {
+    return true
+  }
+
+  return false
+}
+
+// Helper function to handle authentication errors
+const handleAuthError = (error: any) => {
+  console.warn('Authentication error detected:', error)
+
+  // Clear any cached auth data
+  if (typeof window !== 'undefined') {
+    // Clear React Query cache for auth-related queries
+    queryClient.clear()
+
+    // Trigger a page reload to restart the auth flow
+    // This will be handled by the AuthContext
+    window.dispatchEvent(new CustomEvent('auth-error', { detail: error }))
+  }
+}
+
 // Create a client
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -10,10 +48,17 @@ export const queryClient = new QueryClient({
       gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
       // Retry failed requests
       retry: (failureCount, error: any) => {
-        // Don't retry on 4xx errors (client errors)
+        // Don't retry on authentication errors
+        if (isAuthError(error)) {
+          handleAuthError(error)
+          return false
+        }
+
+        // Don't retry on other 4xx errors (client errors)
         if (error?.status >= 400 && error?.status < 500) {
           return false
         }
+
         // Retry up to 3 times for other errors
         return failureCount < 3
       },
@@ -21,10 +66,31 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: true,
       // Refetch on reconnect
       refetchOnReconnect: true,
+      // Add error handling for queries
+      onError: (error: any) => {
+        if (isAuthError(error)) {
+          handleAuthError(error)
+        }
+      },
     },
     mutations: {
       // Retry failed mutations
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        // Don't retry on authentication errors
+        if (isAuthError(error)) {
+          handleAuthError(error)
+          return false
+        }
+
+        // Retry once for other errors
+        return failureCount < 1
+      },
+      // Add error handling for mutations
+      onError: (error: any) => {
+        if (isAuthError(error)) {
+          handleAuthError(error)
+        }
+      },
     },
   },
 })

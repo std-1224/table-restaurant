@@ -79,6 +79,19 @@ export function useNotificationsQuery() {
     queryFn: fetchNotifications,
     staleTime: 1000 * 30, // 30 seconds
     refetchInterval: 1000 * 60, // Refetch every minute as backup to real-time
+    // Enhanced error handling for session issues
+    retry: (failureCount, error: any) => {
+      // Don't retry on auth errors
+      if (error?.message?.includes('JWT expired') ||
+          error?.message?.includes('Invalid JWT') ||
+          error?.code === 'PGRST301' ||
+          error?.code === 'PGRST302') {
+        return false
+      }
+      return failureCount < 3
+    },
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   })
 }
 

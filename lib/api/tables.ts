@@ -63,6 +63,34 @@ export interface CreateTableData {
 }
 
 /**
+ * Helper function to check if error is authentication related
+ */
+const isAuthError = (error: any): boolean => {
+  return error?.message?.includes('JWT expired') ||
+         error?.message?.includes('Invalid JWT') ||
+         error?.message?.includes('session_not_found') ||
+         error?.message?.includes('refresh_token_not_found') ||
+         error?.code === 'PGRST301' ||
+         error?.code === 'PGRST302'
+}
+
+/**
+ * Helper function to handle API errors consistently
+ */
+const handleApiError = (error: any, operation: string) => {
+  console.error(`Error in ${operation}:`, error)
+
+  if (isAuthError(error)) {
+    // Dispatch auth error event for React Query to handle
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auth-error', { detail: error }))
+    }
+  }
+
+  throw error
+}
+
+/**
  * Fetch all tables for the current venue
  */
 export async function fetchTables(): Promise<FrontendTable[]> {
@@ -78,8 +106,7 @@ export async function fetchTables(): Promise<FrontendTable[]> {
       .order('table_number', { ascending: true })
 
     if (error) {
-      console.error('Error fetching tables:', error)
-      throw error
+      handleApiError(error, 'fetchTables')
     }
 
     if (!data) {
@@ -87,8 +114,8 @@ export async function fetchTables(): Promise<FrontendTable[]> {
     }
     return data.map((dbTable) => mapDatabaseTableToFrontend(dbTable))
   } catch (error) {
-    console.error('Failed to fetch tables:', error)
-    throw error
+    handleApiError(error, 'fetchTables')
+    return [] // This line won't be reached due to throw in handleApiError, but TypeScript needs it
   }
 }
 
@@ -166,16 +193,14 @@ export async function updateTableStatus(
       .select()
 
     if (error) {
-      console.error("Error updating table status:", error);
-      throw error;
+      handleApiError(error, 'updateTableStatus')
     }
 
     if (!data || data.length === 0) {
       throw new Error(`No table found with ID: ${tableId}`)
     }
   } catch (error) {
-    console.error("Failed to update table status:", error);
-    throw error;
+    handleApiError(error, 'updateTableStatus')
   }
 }
 

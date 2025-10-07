@@ -6,6 +6,8 @@ import { Space_Grotesk, DM_Sans } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { QueryProvider } from "@/components/providers/QueryProvider"
+import { SessionRecoveryProvider } from "@/components/providers/SessionRecoveryProvider"
+import { SessionErrorBoundary } from "@/components/providers/SessionErrorBoundary"
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -35,11 +37,15 @@ export default function RootLayout({
       <body
         className={`font-sans ${GeistSans.variable} ${GeistMono.variable} ${spaceGrotesk.variable} ${dmSans.variable}`}
       >
-        <QueryProvider>
+        <SessionErrorBoundary>
           <AuthProvider>
-            {children}
+            <QueryProvider>
+              <SessionRecoveryProvider>
+                {children}
+              </SessionRecoveryProvider>
+            </QueryProvider>
           </AuthProvider>
-        </QueryProvider>
+        </SessionErrorBoundary>
       </body>
     </html>
   )

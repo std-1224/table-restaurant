@@ -23,6 +23,7 @@ import { useTablesQuery, useCreateTableMutation, useUpdateTableStatusMutation, u
 import { useNotificationsQuery } from "@/hooks/useNotificationsQuery"
 import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions"
 import { useWaitTimes } from "@/hooks/useWaitTimes"
+
 import { TableDetails } from "@/components/dashboard/TableDetails"
 
 type OrderStatus = "pending" | "preparing" | "ready" | "delivered"

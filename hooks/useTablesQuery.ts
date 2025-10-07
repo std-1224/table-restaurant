@@ -19,6 +19,20 @@ export function useTablesQuery() {
     queryFn: fetchTables,
     staleTime: 1000 * 30, // 30 seconds - tables change frequently
     refetchInterval: 1000 * 60, // Refetch every minute as backup to real-time
+    // Enhanced error handling for session issues
+    retry: (failureCount, error: any) => {
+      // Don't retry on auth errors - let the global handler deal with it
+      if (error?.message?.includes('JWT expired') ||
+          error?.message?.includes('Invalid JWT') ||
+          error?.code === 'PGRST301' ||
+          error?.code === 'PGRST302') {
+        return false
+      }
+      return failureCount < 3
+    },
+    // Refetch when user returns to the app
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   })
 }
 
