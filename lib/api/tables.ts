@@ -145,7 +145,8 @@ export async function createTable(tableData: CreateTableData): Promise<FrontendT
         capacity: tableData.capacity,
         current_guests: tableData.status === 'free' ? 0 : tableData.capacity,
         status: tableData.status,
-        assigned_waiter_id: tableData.assignedWaiter || null
+        assigned_waiter_id: tableData.assignedWaiter || null,
+        extra_balance: tableData.fixedPrice || 0,
       })
       .select()
       .single()
@@ -313,7 +314,7 @@ export async function closeTableSession(tableId: string): Promise<void> {
     }
 
     // Calculate total spent during this session
-    const totalSpent = await calculateSessionTotal(tableId)
+    // const totalSpent = await calculateSessionTotal(tableId)
 
     // Close the most recent active session
     const endTime = new Date().toISOString()
@@ -321,7 +322,7 @@ export async function closeTableSession(tableId: string): Promise<void> {
       .from('table_sessions')
       .update({
         end_time: endTime,
-        total_spent: totalSpent,
+        // total_spent: totalSpent,
         status: 'closed'
       })
       .eq('id', activeSessions[0].id)
@@ -330,16 +331,6 @@ export async function closeTableSession(tableId: string): Promise<void> {
       console.error('Error closing table session:', error)
       throw error
     }
-
-    // Log session details
-    const sessionDuration = new Date(endTime).getTime() - new Date(activeSessions[0].start_time).getTime()
-    const durationMinutes = Math.round(sessionDuration / (1000 * 60))
-    console.log(`🏁 Table session closed:`, {
-      tableId,
-      sessionId: activeSessions[0].id,
-      duration: `${durationMinutes} minutes`,
-      totalSpent: `$${totalSpent}`
-    })
   } catch (error) {
     console.error('Failed to close table session:', error)
     throw error
