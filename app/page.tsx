@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { LazyNotificationsSection } from "@/components/dashboard/LazyNotificationsSection"
@@ -190,18 +190,18 @@ export default function RestaurantDashboard() {
   }
 
   // Mock function for dismissing notifications (will be replaced with proper implementation)
-  const dismissNotification = (notificationId: number) => {
+  const dismissNotification = useCallback((notificationId: number) => {
     // This would typically update the notification status in the database
     console.log('Dismissing notification:', notificationId)
-  }
+  }, [])
 
   // Function to set all tip notifications (for NotificationsSection compatibility)
-  const setTipNotifications = (notifications: { [key: string]: boolean }) => {
+  const setTipNotifications = useCallback((notifications: { [key: string]: boolean }) => {
     // Clear all current notifications and set new ones
     Object.keys(notifications).forEach(tableId => {
       setTipNotification(tableId, notifications[tableId])
     })
-  }
+  }, [setTipNotification])
 
   // Action handlers using mutations
   const changeTableStatus = async (tableId: string, newStatus: DatabaseTableStatus) => {

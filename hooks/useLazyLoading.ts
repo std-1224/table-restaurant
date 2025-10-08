@@ -74,13 +74,13 @@ export function useLazyLoading(options: LazyLoadingOptions = {}) {
     if (isIntersecting && !state.isVisible) {
       setState(prev => ({ ...prev, isVisible: true }))
     }
-  }, [isIntersecting, state.isVisible])
+  }, [isIntersecting])
 
   useEffect(() => {
     if (state.isVisible && !state.hasLoaded && !state.isLoading && enabled) {
       load()
     }
-  }, [state.isVisible, state.hasLoaded, state.isLoading, enabled, load])
+  }, [state.isVisible, state.hasLoaded, state.isLoading, enabled])
 
   useEffect(() => {
     return () => {
@@ -138,7 +138,7 @@ export function useProgressiveLoading<T>(
     } finally {
       setIsLoading(false)
     }
-  }, [items, batchSize, delay, isLoading, hasMore])
+  }, [items, batchSize, delay])
 
   // Reset when items change (with deep comparison to prevent unnecessary resets)
   useEffect(() => {

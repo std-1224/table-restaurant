@@ -1,9 +1,9 @@
 "use client"
 
-import React, { Suspense, lazy, useMemo, useState } from "react"
+import React, { Suspense, lazy, useMemo, useState, useEffect, useRef } from "react"
 import { FrontendTable } from "@/lib/supabase"
 import { NotificationSkeleton } from "@/components/ui/loading-skeletons"
-import { useProgressiveLoading, useLazyLoading } from "@/hooks/useLazyLoading"
+import { useProgressiveLoading } from "@/hooks/useLazyLoading"
 import { usePaginatedNotifications, useNotificationFilters } from "@/hooks/useNotificationsQuery"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -52,20 +52,30 @@ export function LazyNotificationsSection({
   const [showFilters, setShowFilters] = useState(false)
 
   // Only load if there are notifications to show
-  const hasNotifications = activeNotifications.length > 0 ||
-    Object.values(tipNotifications).some(Boolean)
+  const hasNotifications = useMemo(() =>
+    activeNotifications.length > 0 || Object.values(tipNotifications).some(Boolean),
+    [activeNotifications.length, tipNotifications]
+  )
 
-  const {
-    ref,
-    isVisible,
-    hasLoaded,
-    isLoading,
-    error,
-    retry
-  } = useLazyLoading({
-    enabled: hasNotifications,
-    delay: loadingDelay
-  })
+  // Simple loading state without complex lazy loading
+  const [hasLoaded, setHasLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Simple effect to handle loading
+  useEffect(() => {
+    if (hasNotifications && !hasLoaded) {
+      // Skip loading delay for now to test UI
+      setHasLoaded(true)
+      setIsLoading(false)
+    }
+  }, [hasNotifications, hasLoaded])
+
+  const retry = () => {
+    setError(null)
+    setHasLoaded(false)
+  }
 
   // Filter and sort notifications
   const {
@@ -91,9 +101,16 @@ export function LazyNotificationsSection({
     loadNextBatch
   } = useProgressiveLoading(notificationsToShow, maxVisible, 50)
 
-  // Don't render anything if no notifications
+  // Show empty state if no notifications
   if (!hasNotifications) {
-    return null
+    return (
+      <div className="p-4 bg-zinc-900/30 border border-zinc-800 rounded-lg">
+        <div className="flex items-center justify-center text-gray-400">
+          <Bell className="h-5 w-5 mr-2" />
+          <span className="text-sm">No hay notificaciones</span>
+        </div>
+      </div>
+    )
   }
 
   if (error) {
