@@ -25,7 +25,6 @@ export function SessionRecoveryProvider({ children }: SessionRecoveryProviderPro
         setIsRecovering(true)
         
         try {
-          console.log('Page became visible, validating session...')
           
           // Test current session validity
           const { error } = await supabase.auth.getUser()
@@ -41,7 +40,6 @@ export function SessionRecoveryProvider({ children }: SessionRecoveryProviderPro
               queryClient.invalidateQueries()
             }
           } else {
-            console.log('Session is valid')
           }
         } catch (error) {
           console.error('Error during session validation:', error)
@@ -99,7 +97,6 @@ export function SessionRecoveryProvider({ children }: SessionRecoveryProviderPro
         setIsRecovering(true)
         
         try {
-          console.log('Window focused, checking session...')
           
           const { error } = await supabase.auth.getUser()
           

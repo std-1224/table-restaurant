@@ -139,7 +139,6 @@ export function useSelectedTableSync() {
         updatedTable.assignedWaiter !== selectedTable.assignedWaiter
 
       if (hasChanged) {
-        console.log('Syncing selected table with updated data:', updatedTable)
         setSelectedTable(updatedTable)
       }
     } else {

@@ -73,7 +73,6 @@ export function useNotificationSound(options: NotificationSoundOptions = {}) {
 
       // Play the sound
       await audioRef.current.play()
-      console.log('Notification sound played successfully')
       return true
     } catch (error) {
       console.error('Failed to play notification sound:', error)
