@@ -3,11 +3,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { queryKeys, invalidateTableQueries, invalidateOrderQueries, invalidateSessionQueries } from '@/lib/react-query'
 import { useRestaurantStore } from '@/lib/store'
+import { useNotificationSounds } from './useNotificationSound'
 
 // Hook to manage all real-time subscriptions
 export function useRealtimeSubscriptions() {
   const queryClient = useQueryClient()
   const { soundEnabled, setTipNotification, selectedTable } = useRestaurantStore()
+  const { playNotificationByType } = useNotificationSounds()
   const channelsRef = useRef<any[]>([])
 
   useEffect(() => {
@@ -30,13 +32,24 @@ export function useRealtimeSubscriptions() {
         async (payload: any) => {
           try {
             console.log('Tables real-time update:', payload)
-            
+
             // Invalidate tables query to refetch fresh data
             await queryClient.invalidateQueries({ queryKey: queryKeys.tables })
-            
+
             // If a specific table was updated, invalidate its related queries
             if (payload.new?.id) {
               invalidateTableQueries(payload.new.id)
+            }
+
+            // Play notification sound for table status changes
+            if (soundEnabled && (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT')) {
+              playNotificationByType('default')
+                .then((played) => {
+                  if (played) {
+                    console.log(`Table update notification sound played for table ${payload.new?.id}`)
+                  }
+                })
+                .catch(e => console.log('Could not play table update notification sound:', e))
             }
           } catch (error) {
             console.error('Error handling tables real-time update:', error)
@@ -67,20 +80,21 @@ export function useRealtimeSubscriptions() {
             // Handle new notifications with sound/visual alerts
             if (payload.eventType === 'INSERT' && payload.new) {
               const notification = payload.new
-              
+
               // Set tip notification for the table
               if (notification.table_id) {
                 setTipNotification(notification.table_id, true)
-                
-                // Play sound if enabled
+
+                // Play notification sound based on type
                 if (soundEnabled) {
-                  try {
-                    const audio = new Audio('/notification-sound.mp3')
-                    audio.volume = 0.5
-                    audio.play().catch(e => console.log('Could not play notification sound:', e))
-                  } catch (e) {
-                    console.log('Could not create audio element:', e)
-                  }
+                  const notificationType = notification.type || 'default'
+                  playNotificationByType(notificationType)
+                    .then((played) => {
+                      if (played) {
+                        console.log(`Notification sound played for type: ${notificationType}`)
+                      }
+                    })
+                    .catch(e => console.log('Could not play notification sound:', e))
                 }
               }
             }
@@ -106,10 +120,21 @@ export function useRealtimeSubscriptions() {
         async (payload: any) => {
           try {
             console.log('Sessions real-time update:', payload)
-            
+
+            // Play notification sound for session changes (new customers, session end, etc.)
+            if (soundEnabled && (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE')) {
+              playNotificationByType('default')
+                .then((played) => {
+                  if (played) {
+                    console.log(`Session ${payload.eventType.toLowerCase()} notification sound played for table ${payload.new?.table_id}`)
+                  }
+                })
+                .catch(e => console.log('Could not play session notification sound:', e))
+            }
+
             // Invalidate session queries
             invalidateSessionQueries()
-            
+
             // If a specific table session was updated, invalidate table queries
             if (payload.new?.table_id) {
               invalidateTableQueries(payload.new.table_id)
@@ -136,10 +161,22 @@ export function useRealtimeSubscriptions() {
         async (payload: any) => {
           try {
             console.log('Orders real-time update:', payload)
-            
+
             // Invalidate order queries
             invalidateOrderQueries(payload.new?.id)
-            
+
+            // Play notification sound for new orders or order status changes
+            if (soundEnabled && (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE')) {
+              const notificationType = payload.eventType === 'INSERT' ? 'new_order' : 'default'
+              playNotificationByType(notificationType)
+                .then((played) => {
+                  if (played) {
+                    console.log(`Order ${payload.eventType.toLowerCase()} notification sound played for order ${payload.new?.id}`)
+                  }
+                })
+                .catch(e => console.log('Could not play order notification sound:', e))
+            }
+
             // If we have a selected table, check if this order belongs to it
             if (selectedTable?.id) {
               // Check if this order belongs to the selected table
@@ -152,8 +189,8 @@ export function useRealtimeSubscriptions() {
 
               if (tableOrder) {
                 // This order belongs to the selected table, invalidate its orders
-                await queryClient.invalidateQueries({ 
-                  queryKey: queryKeys.tableOrders(selectedTable.id) 
+                await queryClient.invalidateQueries({
+                  queryKey: queryKeys.tableOrders(selectedTable.id)
                 })
               }
             }
@@ -179,11 +216,22 @@ export function useRealtimeSubscriptions() {
         async (payload: any) => {
           try {
             console.log('Table orders real-time update:', payload)
-            
+
+            // Play notification sound for table order changes
+            if (soundEnabled && (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE')) {
+              playNotificationByType('default')
+                .then((played) => {
+                  if (played) {
+                    console.log(`Table order ${payload.eventType.toLowerCase()} notification sound played for table ${payload.new?.table_id}`)
+                  }
+                })
+                .catch(e => console.log('Could not play table order notification sound:', e))
+            }
+
             // Invalidate table orders for the affected table
             if (payload.new?.table_id) {
-              await queryClient.invalidateQueries({ 
-                queryKey: queryKeys.tableOrders(payload.new.table_id) 
+              await queryClient.invalidateQueries({
+                queryKey: queryKeys.tableOrders(payload.new.table_id)
               })
             }
           } catch (error) {

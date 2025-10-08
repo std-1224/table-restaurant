@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/react-query'
 import { FrontendTable } from '@/lib/supabase'
 import { useRestaurantStore } from '@/lib/store'
+import { useNotificationSound } from './useNotificationSound'
 
 // Interface for table session data
 interface TableSession {
@@ -30,6 +31,7 @@ async function fetchActiveSessions(): Promise<TableSession[]> {
 export function useWaitTimes() {
   const queryClient = useQueryClient()
   const { soundEnabled, setTipNotification } = useRestaurantStore()
+  const { playNotificationSound } = useNotificationSound({ volume: 0.6 })
 
   // Query to fetch active sessions
   const { data: sessions = [] } = useQuery({
@@ -60,6 +62,14 @@ export function useWaitTimes() {
         // Trigger notification for tables waiting more than 20 minutes
         if (waitTime >= 20 && soundEnabled) {
           setTipNotification(table.id, true)
+          // Play notification sound for delayed tables
+          playNotificationSound()
+            .then((played) => {
+              if (played) {
+                console.log(`Wait time notification sound played for table ${table.id}`)
+              }
+            })
+            .catch(e => console.log('Could not play wait time notification sound:', e))
         }
         
         return { ...table, waitTime }
