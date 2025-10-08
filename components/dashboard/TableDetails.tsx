@@ -63,8 +63,6 @@ export function TableDetails({
     }
   }, [selectedTable?.status, selectedTable?.id]) // React to status changes specifically
 
-  console.log("isloadingorders: ", isLoading)
-
   const handleOrderAction = async () => {
     if (!selectedTable || !currentTableStatus) return
 
