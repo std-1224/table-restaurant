@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Space_Grotesk, DM_Sans } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/AuthContext"
+import { AppProvider } from "@/contexts/AppContext"
 import { QueryProvider } from "@/components/providers/QueryProvider"
 import { SessionRecoveryProvider } from "@/components/providers/SessionRecoveryProvider"
 import { SessionErrorBoundary } from "@/components/providers/SessionErrorBoundary"
@@ -39,11 +40,13 @@ export default function RootLayout({
       >
         <SessionErrorBoundary>
           <AuthProvider>
-            <QueryProvider>
-              <SessionRecoveryProvider>
-                {children}
-              </SessionRecoveryProvider>
-            </QueryProvider>
+            <AppProvider>
+              <QueryProvider>
+                <SessionRecoveryProvider>
+                    {children}
+                </SessionRecoveryProvider>
+              </QueryProvider>
+            </AppProvider>
           </AuthProvider>
         </SessionErrorBoundary>
       </body>

@@ -16,6 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { Filter } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useApp } from "@/contexts/AppContext"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // New hooks and store imports
 import { useRestaurantStore } from "@/lib/store"
@@ -70,6 +77,9 @@ export default function RestaurantDashboard() {
   // Auth context
   const { profile } = useAuth()
 
+  // App context for module management
+  const { isModuleEnabled, tenantModulesLoading } = useApp()
+
   // Zustand store state
   const {
     currentView,
@@ -89,6 +99,11 @@ export default function RestaurantDashboard() {
     dismissTipNotification,
     setTipNotification,
   } = useRestaurantStore()
+
+  // Tab to module mapping:
+  // - commander: stockqr (Core module)
+  // - Barra: stockqr_qr_tracking (QR tracking/Barra)
+  // - Supervisor: stockqr_finances (Finance panel/Supervisor)
 
   // React Query hooks
   const { data: tables = [], isLoading: loading, error: tablesError } = useTablesQuery()
@@ -288,27 +303,67 @@ export default function RestaurantDashboard() {
 
         <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as any)} className="w-full">
           <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-12 bg-transparent border-zinc-950 gap-1 sm:gap-0 p-1">
-            <TabsTrigger
-              value="comandera"
-              className="font-medium text-xs sm:text-sm text-gray-300 data-[state=active]:bg-gray-800 data-[state=active]:text-white border-zinc-950 bg-transparent h-10 sm:h-auto"
-            >
-              Comandera
-            </TabsTrigger>
-            <TabsTrigger
-              value="barra"
-              className="font-medium text-xs sm:text-sm text-gray-300 data-[state=active]:bg-gray-800 data-[state=active]:text-white bg-transparent border-zinc-950 h-10 sm:h-auto"
-            >
-              Barra
-            </TabsTrigger>
-            <TabsTrigger
-              value="supervisor"
-              className="font-medium text-xs sm:text-sm text-gray-300 data-[state=active]:bg-gray-800 data-[state=active]:text-white bg-transparent border-zinc-950 h-10 sm:h-auto"
-            >
-              Supervisor
-            </TabsTrigger>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="commander"
+                    disabled={!isModuleEnabled('commander') && !tenantModulesLoading}
+                    className={`font-medium text-xs sm:text-sm text-gray-300 data-[state=active]:bg-gray-800 data-[state=active]:text-white border-zinc-950 bg-transparent h-10 sm:h-auto ${
+                      !isModuleEnabled('commander') && !tenantModulesLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    commander
+                  </TabsTrigger>
+                </TooltipTrigger>
+                {!isModuleEnabled('commander') && !tenantModulesLoading && (
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Módulo no habilitado</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="barra"
+                    disabled={!isModuleEnabled('commander') && !tenantModulesLoading}
+                    className={`font-medium text-xs sm:text-sm text-gray-300 data-[state=active]:bg-gray-800 data-[state=active]:text-white bg-transparent border-zinc-950 h-10 sm:h-auto ${
+                      !isModuleEnabled('commander') && !tenantModulesLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    Barra
+                  </TabsTrigger>
+                </TooltipTrigger>
+                {!isModuleEnabled('commander') && !tenantModulesLoading && (
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Módulo no habilitado</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="supervisor"
+                    disabled={!isModuleEnabled('commander') && !tenantModulesLoading}
+                    className={`font-medium text-xs sm:text-sm text-gray-300 data-[state=active]:bg-gray-800 data-[state=active]:text-white bg-transparent border-zinc-950 h-10 sm:h-auto ${
+                      !isModuleEnabled('commander') && !tenantModulesLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    Supervisor
+                  </TabsTrigger>
+                </TooltipTrigger>
+                {!isModuleEnabled('commander') && !tenantModulesLoading && (
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Módulo no habilitado</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </TabsList>
 
-          <TabsContent value="comandera" className="space-y-4 lg:space-y-6">
+          <TabsContent value="commander" className="space-y-4 lg:space-y-6">
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
               <div className="xl:col-span-2">
                 <div className="space-y-4 py-6">
